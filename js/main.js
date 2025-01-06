@@ -1,7 +1,7 @@
 import { generateMaze, drawMaze } from './maze.js';
 import { player, initializePlayer, drawPlayer } from './player.js';
 import { flashlight, drawFlashlight, initializeWallGrid, flashlightSegments, isGhostHitByRay } from './flashlight.js';
-import { ghosts, createGhosts, drawGhosts } from './createGhosts.js';
+import { ghosts, createGhosts } from './createGhosts.js';
 import { updateGhosts } from './updateGhosts.js';
 import { keys, initializeInput, flashlightOn, debugMode, disableFlashlight, flashlightDisabledUntil, setFlashlightOn, flashlightWasOnBeforeDisable } from './input.js';
 
@@ -11,8 +11,8 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 export const maze = {
-  width: 7000,
-  height: 7000,
+  width: 5000,
+  height: 5000,
   cellSize: 100,
   walls: [],
 };
@@ -33,10 +33,15 @@ function update() {
   // 플레이어 이동 (미로 이동)
   let dx = 0;
   let dy = 0;
-  if (keys.w) dy = 2;
-  if (keys.s) dy = -2;
-  if (keys.a) dx = 2;
-  if (keys.d) dx = -2;
+  if (!player.debuffs.some(debuff => debuff.type === 'immobilized')) {
+    if (keys.w) dy = 2;
+    if (keys.s) dy = -2;
+    if (keys.a) dx = 2;
+    if (keys.d) dx = -2;
+  } else {
+    dx = 0;
+    dy = 0;
+  }
 
   const nextX = -mazeOffsetX + canvas.width / 2 - dx;
   const nextY = -mazeOffsetY + canvas.height / 2 - dy;
@@ -65,6 +70,16 @@ function update() {
   drawVisibleGhosts(ctx, mazeOffsetX, mazeOffsetY);
 
   checkPlayerGhostCollision();
+  
+  // 디버프 상태 업데이트 및 전등 자동 조절
+  player.debuffs.forEach(debuff => {
+    if (Date.now() > debuff.expiresAt) {
+      player.removeDebuff(debuff.type);
+      if (debuff.type === 'flashlightDisabled') {
+        setFlashlightOn(flashlightWasOnBeforeDisable); // 이전 상태로 복원
+      }
+    }
+  });
 
   if (flashTime > 0) {
     ctx.fillStyle = flashColor.replace('0.7', (flashTime / 30).toString());
@@ -73,7 +88,7 @@ function update() {
   }
 
   // 전등 자동 재활성화
-  if (!flashlightOn && Date.now() > flashlightDisabledUntil) {
+  if (!flashlightOn && Date.now() > flashlightDisabledUntil && player.debuffs.length === 0) {
     setFlashlightOn(flashlightWasOnBeforeDisable); // 이전 상태에 따라 전등 켜기
   }
 
@@ -101,7 +116,7 @@ function drawVisibleGhosts(ctx, mazeOffsetX, mazeOffsetY) {
           flashlightOn && isGhostHitByRay(ghost)
         );
 
-    if (isGhostVisible) {
+    if (isGhostVisible || ghost.type === 'earthBound') {
       ctx.fillStyle = ghost.color.replace('0.7', ghost.opacity.toString());
       ctx.beginPath();
       ctx.arc(
@@ -148,6 +163,12 @@ function checkPlayerGhostCollision() {
       ghosts.splice(index, 1);
       createGhosts(1, ghostType);
       if (ghost.type === 'charger') disableFlashlight(3000); // 3초간 전등 사용 불가
+      if (ghost.type === 'earthBound') {
+        player.addDebuff({
+          type: 'immobilized',
+          expiresAt: Date.now() + 3000 // 3초간 움직이지 못하게 함
+        });
+      }
     }
   });
 }

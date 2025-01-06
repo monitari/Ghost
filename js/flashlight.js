@@ -6,7 +6,6 @@ export const flashlight = {
   fov: Math.PI / 4, // 각도를 줄임 (45도)
   rayCount: 150,
   maxDistance: 800, // 길이를 늘림
-  cellSize: 100,
   rayCache: new Map(), // 레이 캐싱
 };
 
@@ -17,14 +16,11 @@ const wallGrid = new Map();
 
 export function initializeWallGrid() {
   wallGrid.clear();
-  const cols = Math.floor(maze.width / maze.cellSize);
-  const rows = Math.floor(maze.height / maze.cellSize);
-  
   maze.walls.forEach(wall => {
-    const startGridX = Math.floor((wall.x + maze.width / 2) / flashlight.cellSize);
-    const startGridY = Math.floor((wall.y + maze.height / 2) / flashlight.cellSize);
-    const endGridX = Math.floor((wall.x + wall.width + maze.width / 2) / flashlight.cellSize);
-    const endGridY = Math.floor((wall.y + wall.height + maze.height / 2) / flashlight.cellSize);
+    const startGridX = Math.floor((wall.x + maze.width / 2) / maze.cellSize);
+    const startGridY = Math.floor((wall.y + maze.height / 2) / maze.cellSize);
+    const endGridX = Math.floor((wall.x + wall.width + maze.width / 2) / maze.cellSize);
+    const endGridY = Math.floor((wall.y + wall.height + maze.height / 2) / maze.cellSize);
     
     for (let x = startGridX; x <= endGridX; x++) {
       for (let y = startGridY; y <= endGridY; y++) {
@@ -132,7 +128,7 @@ export function drawFlashlight(ctx) {
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
   const fps = getFPS();
-  flashlight.rayCount = Math.max(30, Math.min(60, Math.floor(fps / 2)));
+  flashlight.rayCount = Math.max(50, Math.min(60, Math.floor(fps / 2))); // 최소값을 50으로 늘림
   flashlightSegments.length = 0;
 
   ctx.save();
@@ -176,7 +172,7 @@ export function drawFlashlight(ctx) {
   points.forEach(point => {
     if (point.hit) {
       ctx.beginPath();
-      ctx.arc(point.x, point.y, 2, 0, Math.PI * 2);
+      ctx.arc(point.x, point.y, 1, 0, Math.PI * 2); // 점의 크기를 1로 줄임
       ctx.fillStyle = 'rgba(255, 255, 150, 0.5)';
       ctx.fill();
     }

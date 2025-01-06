@@ -1,4 +1,4 @@
-import { canvas, maze, mazeOffsetX, mazeOffsetY } from './main.js';
+import { maze, mazeOffsetX, mazeOffsetY } from './main.js';
 
 export function generateMaze(playerStartCol, playerStartRow, safeZoneRadius) {
   const cols = Math.floor(maze.width / maze.cellSize);

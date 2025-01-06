@@ -1,14 +1,20 @@
 import { maze, mazeOffsetX, mazeOffsetY, canvas } from './main.js';
 import { player } from './player.js';
-import { flashlightSegments, flashlight, isGhostHitByRay } from './flashlight.js';
-import { ghosts, createGhosts, ghostCount, originalSpeed, speedIncrement } from './createGhosts.js';
-import { flashlightOn, disableFlashlight } from './input.js';
+import { flashlight, isGhostHitByRay } from './flashlight.js';
+import { ghosts, createGhosts, ghostCount } from './createGhosts.js';
+import { flashlightOn, flashlightWasOnBeforeDisable, setFlashlightOn, debugMode } from './input.js';
 
 function handleGhostDeath(ghost, index) {
   const ghostType = ghost.type;
   createSpecialEffect(ghost.x, ghost.y, ghost.color);
   ghosts.splice(index, 1);
   createGhosts(1, ghostType);
+  if (ghost.type === 'earthBound') {
+    player.addDebuff({
+      type: 'immobilized',
+      expiresAt: Date.now() + 3000 // 3초간 움직이지 못하게 함
+    });
+  }
 }
 
 function handleGhostFading(ghost) {
@@ -78,20 +84,33 @@ export function updateGhosts() {
       ghost.opacity = Math.max(ghost.opacity - 0.05, 0.2);
     }
 
-    if (ghost.type === 'charger') {
-      handleChargerMovement(ghost, player.x, player.y);
-    } else {
-      handleGhostFading(ghost);
-    }
+    if (ghost.type === 'charger') handleChargerMovement(ghost, player.x, player.y);
+    else handleGhostFading(ghost);
 
-    // 충전기와의 충돌 체크
-    if (ghost.type === 'charger' && distance < player.size + ghost.size) {
-      disableFlashlight(3000); // 3초간 전등 사용 불가
+    if (ghost.type === 'earthBound') {
+      // 지박령은 항상 안보이고, 경고등으로만 위치를 파악할 수 있음
+      ghost.opacity = debugMode ? 0.2 : 0;
     }
   });
 
   while (ghosts.length < ghostCount && !summonedAllFirstGhosts(ghostTypeCounts)) 
     createGhosts(1);
+  
+  // 디버프 만료 확인 및 전등 상태 재조정
+  player.debuffs = player.debuffs.filter(debuff => {
+    if (currentTime > debuff.expiresAt) {
+      player.removeDebuff(debuff.type);
+      return false; // 제거
+    }
+    return true; // 유지
+  });
+
+  // 활성화된 'flashlightDisabled' 디버프가 있는지 확인
+  const hasFlashlightDebuff = player.debuffs.some(debuff => debuff.type === 'flashlightDisabled');
+
+  if (!hasFlashlightDebuff) {
+    setFlashlightOn(flashlightWasOnBeforeDisable); // 이전 상태로 복원
+  }
 }
 
 function updateGhostMovement(ghost, currentTime) {
@@ -113,9 +132,7 @@ function updateGhostMovement(ghost, currentTime) {
     handleTeleporterMovement(ghost, currentTime, playerX, playerY);
   }
   else if (ghost.type === 'weepingAngel') {
-    if (distance < ghost.visionRange) {
-      handleWeepingAngelMovement(ghost, playerX, playerY);
-    }
+    handleWeepingAngelMovement(ghost, playerX, playerY);
   }
   else if (ghost.type === 'charger') {
     if (distance < ghost.visionRange) {
@@ -125,7 +142,6 @@ function updateGhostMovement(ghost, currentTime) {
 }
 
 function handleTeleporterMovement(ghost, currentTime, playerX, playerY) {
-  // 전등이 유령에게 닿아도 순간이동을 준비
   if (currentTime - ghost.lastTeleport > ghost.teleportInterval) {
     ghost.lastTeleport = currentTime;
     ghost.fading = true;
@@ -164,7 +180,9 @@ function handleWeepingAngelMovement(ghost, playerX, playerY) {
   const dx = playerX - ghost.x;
   const dy = playerY - ghost.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
-  if (distance < 500 && !player.isLookingAt(ghost)) {
+
+  // 플레이어가 유령의 시야 범위 내에 있을 때만 움직임
+  if (distance < ghost.visionRange) {
     const angle = Math.atan2(dy, dx);
     ghost.dx = Math.cos(angle) * ghost.speed;
     ghost.dy = Math.sin(angle) * ghost.speed;
@@ -179,36 +197,36 @@ function handleChargerMovement(ghost, playerX, playerY) {
   const dy = playerY - ghost.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
 
-  if (!ghost.charging && distance < 500 && ghost.cooldown === 0) {
-    ghost.charging = true;
-    ghost.speed = ghost.originalSpeed * 2; // 속도 증가
-  }
-
   if (ghost.charging) {
     const angle = Math.atan2(dy, dx);
     ghost.dx = Math.cos(angle) * ghost.speed;
     ghost.dy = Math.sin(angle) * ghost.speed;
 
-    // 돌진 후 쿨다운 적용
-    ghost.cooldown = 3000; // 3초 쿨다운
-    ghost.charging = false;
-  }
-
-  if (ghost.cooldown > 0) {
+    // 플레이어와 충돌 시 디버프 적용
+    if (distance < player.size + ghost.size) {
+      ghost.charging = false;
+      ghost.cooldown = 3000; // 3초 쿨타임
+    } else if (distance < flashlight.maxDistance * 0.4 && !isGhostHitByRay(ghost)) {
+      // 돌진을 놓쳤을 때
+      ghost.charging = false;
+      ghost.cooldown = 3000; // 3초 쿨타임
+      ghost.speed *= 0.5; // 속도 감소
+    }
+  } else if (ghost.cooldown > 0) {
     ghost.cooldown -= 16.67; // 약 60 FPS 기준 프레임당 감소
-    if (ghost.cooldown < 0) ghost.cooldown = 0;
-  }
-
-  // 빗나갔을 때 처리
-  if (distance > flashlight.maxDistance * 0.4 && ghost.speed > ghost.originalSpeed) {
-    ghost.missCount += 1;
-    ghost.speed = ghost.originalSpeed + ghost.missCount * ghost.speedIncrement; // 속도 증가
-  }
-
-  // 플레이어 시야에서 벗어나면 초기화
-  if (!isGhostHitByRay(ghost)) {
-    ghost.missCount = 0;
-    ghost.speed = ghost.originalSpeed;
+    if (ghost.cooldown <= 0) {
+      ghost.cooldown = 0;
+      if (isGhostHitByRay(ghost)) {
+        ghost.charging = true;
+        ghost.speed *= 2; // 속도 2배 증가
+      }
+    }
+  } else {
+    // 플레이어가 충전 범위에 들어왔을 때
+    if (distance < ghost.visionRange) {
+      ghost.charging = true;
+      ghost.speed *= 2; // 속도 2배 증가
+    }
   }
 }
 

@@ -6,6 +6,7 @@ export const player = {
   size: 10,
   colliderSize: 10,
   angle: 0,
+  debuffs: [], // debuff 속성을 배열로 변경
   isLookingAt(ghost) {
     const dx = ghost.x - this.x;
     const dy = ghost.y - this.y;
@@ -13,6 +14,16 @@ export const player = {
     const angleDifference = Math.abs(this.angle - angleToGhost);
     return angleDifference < Math.PI / 4;
   }
+};
+
+// 디버프 추가 함수
+player.addDebuff = function(debuff) {
+  this.debuffs.push(debuff);
+};
+
+// 디버프 제거 함수
+player.removeDebuff = function(debuffType) {
+  this.debuffs = this.debuffs.filter(d => d.type !== debuffType);
 };
 
 export function initializePlayer() {

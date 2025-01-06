@@ -16,6 +16,12 @@ export let debugMode = false;
 export let flashlightDisabledUntil = 0; // flashlightDisabledUntil을 export
 export let flashlightWasOnBeforeDisable = true; // 이전 전등 상태 저장 변수 추가
 
+// 디버프 타입 정의
+export const DEBUFFS = {
+  IMMOBILIZED: 'immobilized',
+  // ...other debuffs...
+};
+
 export function initializeInput() {
   document.addEventListener("keydown", (e) => {
     if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
@@ -48,16 +54,42 @@ export function initializeInput() {
 export function disableFlashlight(duration) {
   flashlightWasOnBeforeDisable = flashlightOn; // 전등이 켜져 있었는지 저장
   flashlightOn = false;
-  flashlightDisabledUntil = Date.now() + duration;
+  
+  const debuff = {
+    type: 'flashlightDisabled',
+    expiresAt: Date.now() + duration
+  };
+  
+  player.addDebuff(debuff); // 디버프를 배열에 추가
+}
+
+// 플레이어를 immobilize 상태로 만드는 함수 추가
+export function immobilizePlayer(duration) {
+  const debuff = {
+    type: DEBUFFS.IMMOBILIZED,
+    expiresAt: Date.now() + duration
+  };
+  player.addDebuff(debuff);
 }
 
 export function setFlashlightOn(value) {
-  // 전등이 비활성화된 상태에서는 켤 수 없음
-  if (Date.now() <= flashlightDisabledUntil) {
+  // 활성화된 디버프가 있는지 확인
+  const hasFlashlightDebuff = player.debuffs.some(debuff => debuff.type === 'flashlightDisabled' && Date.now() <= debuff.expiresAt);
+  
+  if (hasFlashlightDebuff) {
+    flashlightOn = false;
     return;
   }
   
   // 전등 상태 변경 가능
   flashlightOn = value;
   flashlightWasOnBeforeDisable = value;
+  
+  // 디버프가 만료되었을 때 전등 자동 조절
+  player.debuffs.forEach(debuff => {
+    if (debuff.type === 'flashlightDisabled' && Date.now() > debuff.expiresAt) {
+      player.removeDebuff(debuff.type);
+      flashlightOn = flashlightWasOnBeforeDisable;
+    }
+  });
 }

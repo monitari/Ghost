@@ -23,7 +23,7 @@ export function initializePlayer() {
 export function drawPlayer(ctx) {
   ctx.beginPath();
   ctx.arc(canvas.width / 2, canvas.height / 2, player.size, 0, Math.PI * 2);
-  ctx.fillStyle = "red";
+  ctx.fillStyle = "white";
   ctx.fill();
 }
 
@@ -32,3 +32,4 @@ export function updatePlayerAngle(mouseX, mouseY) {
   const dy = mouseY - canvas.height / 2;
   player.angle = Math.atan2(dy, dx);
 }
+

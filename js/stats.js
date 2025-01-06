@@ -117,7 +117,7 @@ export function updatePlayerStats() {
     <li>위핑 엔젤 킬: ${stats.kills.weepingAngel}</li>
     <li>차저 킬: ${stats.kills.charger}</li>
     <li>어스본드 킬: ${stats.kills.earthBound}</li>
-    <li>닿은 횟수: 
+    <li>닿은 횟수: ${stats.hits.follower + stats.hits.random + stats.hits.teleporter + stats.hits.weepingAngel + stats.hits.charger + stats.hits.earthBound}</li>
       <ul>
         <li>팔로워: ${stats.hits.follower}</li>
         <li>랜덤: ${stats.hits.random}</li>

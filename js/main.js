@@ -4,7 +4,6 @@ import { flashlight, drawFlashlight, initializeWallGrid, isGhostHitByRay } from 
 import { ghosts, createGhosts } from './createGhosts.js';
 import { updateGhosts } from './updateGhosts.js';
 import { keys, initializeInput, flashlightOn, debugMode, disableFlashlight, flashlightDisabledUntil, setFlashlightOn, flashlightWasOnBeforeDisable } from './input.js';
-import { playSound } from './sound.js';
 import { stats, loadStatsFromCookies, saveStatsToCookies, setCurrentNickname, incrementKillCount, incrementHitCount, incrementDebuffCount, showPlayerStats } from './stats.js';
 
 // 걷기 소리 재생 함수 추가
@@ -14,7 +13,11 @@ function playWalkSound() {
     walkSound = new Audio('sounds/player/walk.mp3');
     walkSound.loop = true;
   }
-  if (walkSound.paused) walkSound.play();
+  if (walkSound.paused) {
+    walkSound.play().catch(error => {
+      console.error('Walk sound play failed:', error);
+    });
+  }
 }
 
 function stopWalkSound() {
@@ -29,6 +32,7 @@ let currentNickname = '';
 
 // 게임 시작 시 통계 로드
 export function startGame(nickname) {
+  console.log(`게임을 시작합니다: ${nickname}`);
   currentNickname = nickname;
   setCurrentNickname(nickname);
   console.log(`게임을 시작합니다, ${nickname}!`);
@@ -63,7 +67,10 @@ let flashTime = 0;
 
 // 업데이트 함수 수정: 프레임 속도 제한
 function update() {
-  if (!gameRunning) return; // 게임이 시작되지 않았으면 업데이트 중지
+  if (!gameRunning) {
+    console.log('게임이 실행 중이 아님. 업데이트 중지');
+    return;
+  }
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // 플레이어 이동 (미로 이동)
@@ -234,6 +241,7 @@ function checkPlayerGhostCollision() {
 }
 
 function initializeGame() {
+  console.log('게임 초기화 시작');
   let stuckInWall = true;
 
   while (stuckInWall) {
@@ -258,6 +266,7 @@ function initializeGame() {
   mazeOffsetY = canvas.height / 2;
 
   createGhosts();
+  console.log('유령 생성 완료');
   update();
 }
 
@@ -296,4 +305,26 @@ function showGameClearScreen() {
   document.getElementById('restart-button').addEventListener('click', () => {
     location.reload();
   });
+}
+
+export function playSound(src, duration = 1000, fadeOutDuration = 500, startTime = 0, volume = 1.0) {
+  const sound = new Audio(src);
+  sound.volume = volume;
+  sound.currentTime = startTime;
+  sound.play();
+
+  setTimeout(() => {
+    const fadeOutInterval = 50;
+    const fadeOutStep = sound.volume / (fadeOutDuration / fadeOutInterval);
+
+    const fadeOut = setInterval(() => {
+      if (sound.volume > fadeOutStep) {
+        sound.volume -= fadeOutStep;
+      } else {
+        sound.volume = 0;
+        sound.pause();
+        clearInterval(fadeOut);
+      }
+    }, fadeOutInterval);
+  }, duration);
 }

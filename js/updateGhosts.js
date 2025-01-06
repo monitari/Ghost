@@ -1,9 +1,8 @@
-import { maze, mazeOffsetX, mazeOffsetY, canvas } from './main.js';
+import { maze, mazeOffsetX, mazeOffsetY, canvas, playSound } from './main.js';
 import { player } from './player.js';
 import { flashlight, isGhostHitByRay } from './flashlight.js';
 import { ghosts, createGhosts, ghostCount } from './createGhosts.js';
 import { flashlightOn, flashlightWasOnBeforeDisable, setFlashlightOn, debugMode } from './input.js';
-import { playSound } from './sound.js'; // 추가
 import { incrementKillCount } from './stats.js'; // 추가
 
 const ghostDeathSounds = [

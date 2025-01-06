@@ -1,7 +1,6 @@
-import { canvas } from './main.js';
+import { canvas, playSound } from './main.js';
 import { player, updatePlayerAngle } from './player.js';
 import { flashlight } from './flashlight.js';
-import { playSound } from './sound.js'; // 추가
 
 export const keys = {
   w: false,
@@ -18,18 +17,23 @@ export let flashlightDisabledUntil = 0; // flashlightDisabledUntil을 export
 export let flashlightWasOnBeforeDisable = true; // 이전 전등 상태 저장 변수 추가
 
 export function initializeInput() {
+  console.log('입력 초기화 시작');
   document.addEventListener("keydown", (e) => {
     if (!window.gameRunning) return; // 게임이 시작되지 않았으면 무시
     if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
     if (e.key === 'e' && Date.now() > flashlightDisabledUntil) {
       setFlashlightOn(!flashlightOn); // 전등 토글을 setFlashlightOn으로 변경
       playSound('sounds/player/light-switch.mp3', 1000, 1000, 0, 1.0); // 전등 효과음 추가
+      console.log('전등 상태 토글');
       
       // 통계 업데이트
       const event = new Event('statsUpdated');
       window.dispatchEvent(event);
     }
-    if (e.key === 'h') debugMode = !debugMode;
+    if (e.key === 'h') {
+      debugMode = !debugMode;
+      console.log(`디버그 모드: ${debugMode}`);
+    }
   });
 
   document.addEventListener("keyup", (e) => {

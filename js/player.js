@@ -1,4 +1,5 @@
 import { canvas } from './main.js';
+import { incrementDebuffCount } from './stats.js';
 
 export const player = {
   x: 0,
@@ -16,9 +17,10 @@ export const player = {
   }
 };
 
-// 디버프 추가 함수
+// 디버프 추가 함수 수정: 디버프 획득 시 횟수 증가
 player.addDebuff = function(debuff) {
   this.debuffs.push(debuff);
+  incrementDebuffCount(debuff.type); // 디버프 획득 횟수 증가
 };
 
 // 디버프 제거 함수
@@ -43,4 +45,3 @@ export function updatePlayerAngle(mouseX, mouseY) {
   const dy = mouseY - canvas.height / 2;
   player.angle = Math.atan2(dy, dx);
 }
-

@@ -4,7 +4,7 @@ import { player } from './player.js'; // player를 가져옵니다
 export const flashlight = {
   angle: 0,
   fov: Math.PI / 4, // 각도를 줄임 (45도)
-  rayCount: 150,
+  rayCount: 60, // 레이 수 줄임 (150에서 60으로 감소)
   maxDistance: 800, // 길이를 늘림
   rayCache: new Map(), // 레이 캐싱
 };
@@ -128,7 +128,7 @@ export function drawFlashlight(ctx) {
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
   const fps = getFPS();
-  flashlight.rayCount = Math.max(50, Math.min(60, Math.floor(fps / 2))); // 최소값을 50으로 늘림
+  flashlight.rayCount = Math.max(30, Math.min(60, Math.floor(fps / 2))); // 최소값을 30으로 조정
   flashlightSegments.length = 0;
 
   ctx.save();

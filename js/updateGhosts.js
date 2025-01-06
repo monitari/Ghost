@@ -3,12 +3,33 @@ import { player } from './player.js';
 import { flashlight, isGhostHitByRay } from './flashlight.js';
 import { ghosts, createGhosts, ghostCount } from './createGhosts.js';
 import { flashlightOn, flashlightWasOnBeforeDisable, setFlashlightOn, debugMode } from './input.js';
+import { playSound } from './sound.js'; // 추가
+import { incrementKillCount } from './stats.js'; // 추가
+
+const ghostDeathSounds = [
+  { src: 'sounds/ghost/ghost-death1.mp3', startTime: 0, volume: 0.5 },
+  { src: 'sounds/ghost/ghost-death2.mp3', startTime: 0.2, volume: 1.0 },
+  { src: 'sounds/ghost/ghost-death3.mp3', startTime: 0.3, volume: 0.7 },
+  { src: 'sounds/ghost/ghost-death4.mp3', startTime: 0.4, volume: 0.8 },
+  { src: 'sounds/ghost/ghost-death5.mp3', startTime: 1.1, volume: 0.8 },
+  { src: 'sounds/ghost/ghost-death6.mp3', startTime: 0.0, volume: 0.2 },
+  { src: 'sounds/ghost/ghost-death7.mp3', startTime: 1.5, volume: 0.5 },
+  { src: 'sounds/ghost/ghost-death8.mp3', startTime: 0.0, volume: 0.4 },
+  { src: 'sounds/ghost/ghost-death9.mp3', startTime: 0.0, volume: 0.6 },
+  { src: 'sounds/ghost/ghost-death10.mp3', startTime: 0.0, volume: 1.0 },
+];
 
 function handleGhostDeath(ghost, index) {
   const ghostType = ghost.type;
   createSpecialEffect(ghost.x, ghost.y, ghost.color);
   ghosts.splice(index, 1);
   createGhosts(1, ghostType);
+  const randomSound = ghostDeathSounds[Math.floor(Math.random() * ghostDeathSounds.length)];
+  playSound(randomSound.src, 600, 500, randomSound.startTime, randomSound.volume);
+  
+  // 유령 타입 별 처치 횟수 증가
+  incrementKillCount(ghostType);
+  
   if (ghost.type === 'earthBound') {
     player.addDebuff({
       type: 'immobilized',
@@ -48,8 +69,12 @@ function handleGhostFading(ghost) {
 }
 
 export function updateGhosts() {
+  if (!gameRunning) return; // 게임이 시작되지 않았으면 유령 업데이트 중지
+
   const currentTime = Date.now();
-  const ghostTypeCounts = { follower: 0, random: 0, teleporter: 0, weepingAngel: 0, charger: 0 };
+  const ghostTypeCounts = { 
+    follower: 0, random: 0, teleporter: 0, weepingAngel: 0, charger: 0, earthBound: 0 
+  };
 
   ghosts.forEach((ghost, index) => {
     const dxGhost = ghost.x - player.x;
@@ -75,20 +100,16 @@ export function updateGhosts() {
     }
 
     // 모든 유령이 동일하게 투명도 조절
-    if (flashlightOn && isGhostHitByRay(ghost)) {
-      ghost.opacity = Math.min(ghost.opacity + 0.05, 1);
-    } else if (flashlightOn) {
-      ghost.opacity = Math.max(ghost.opacity - 0.05, 0.2);
-    } else {
-      // 플래시라이트가 꺼져 있을 때 모든 유령의 투명도를 0.2로 유지
+    if (flashlightOn && isGhostHitByRay(ghost)) ghost.opacity = Math.min(ghost.opacity + 0.05, 1);
+    else if (flashlightOn) ghost.opacity = Math.max(ghost.opacity - 0.05, 0.2);
+    else { // 플래시라이트가 꺼져 있을 때 모든 유령의 투명도를 0.2로 유지
       ghost.opacity = Math.max(ghost.opacity - 0.05, 0.2);
     }
 
     if (ghost.type === 'charger') handleChargerMovement(ghost, player.x, player.y);
     else handleGhostFading(ghost);
 
-    if (ghost.type === 'earthBound') {
-      // 지박령은 항상 안보이고, 경고등으로만 위치를 파악할 수 있음
+    if (ghost.type === 'earthBound') { // 지박령은 항상 안보이고, 경고등으로만 위치를 파악할 수 있음
       ghost.opacity = debugMode ? 0.2 : 0;
     }
   });
@@ -108,9 +129,7 @@ export function updateGhosts() {
   // 활성화된 'flashlightDisabled' 디버프가 있는지 확인
   const hasFlashlightDebuff = player.debuffs.some(debuff => debuff.type === 'flashlightDisabled');
 
-  if (!hasFlashlightDebuff) {
-    setFlashlightOn(flashlightWasOnBeforeDisable); // 이전 상태로 복원
-  }
+  if (!hasFlashlightDebuff) setFlashlightOn(flashlightWasOnBeforeDisable); // 이전 상태로 복원
 }
 
 function updateGhostMovement(ghost, currentTime) {
@@ -181,8 +200,8 @@ function handleWeepingAngelMovement(ghost, playerX, playerY) {
   const dy = playerY - ghost.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
 
-  // 플레이어가 유령의 시야 범위 내에 있을 때만 움직임
-  if (distance < ghost.visionRange) {
+  // 플레이어가 유령의 시야 범위 내에 있을 때 + 플레이어가 유령을 바라보고 있지 않을 때
+  if (distance < ghost.visionRange && !player.isLookingAt(ghost)) {
     const angle = Math.atan2(dy, dx);
     ghost.dx = Math.cos(angle) * ghost.speed;
     ghost.dy = Math.sin(angle) * ghost.speed;

@@ -1,20 +1,20 @@
 import { maze, mazeOffsetX, mazeOffsetY, canvas } from './main.js';
 
 export const ghosts = [];
-export const ghostCount = 200;
+export const ghostCount = 250;
 
 const ghostTypes = [
   { type: 'follower', probability: 0.05, color: 'rgba(255, 0, 0, 0.7)', 
-    speedMultiplier: 0.7, size: 20, health: 40, visionRange: Infinity },
-  { type: 'random', probability: 0.3, color: 'rgba(0, 255, 0, 0.7)', 
+    speedMultiplier: 0.7, size: 20, health: 40, visionRange: 1000 },
+  { type: 'random', probability: 0.2, color: 'rgba(0, 255, 0, 0.7)', 
     speedMultiplier: 1.0, size: 20, health: 50, visionRange: 300 },
   { type: 'teleporter', probability: 0.1, color: 'rgba(0, 0, 255, 0.7)', 
     speedMultiplier: 1.0, size: 20, health: 20, visionRange: 300 },
-  { type: 'weepingAngel', probability: 0.2, color: 'rgba(255, 255, 0, 0.7)', 
+  { type: 'weepingAngel', probability: 0.1, color: 'rgba(255, 255, 0, 0.7)', 
     speedMultiplier: 1.5, size: 20, health: 50, visionRange: 500 },
   { type: 'charger', probability: 0.05, color: 'rgba(255, 0, 255, 0.7)', 
     speedMultiplier: 2.0, size: 20, health: 20, visionRange: 400 },
-  { type: 'earthBound', probability: 0.3, color: 'rgba(50, 50, 50, 0.7)',
+  { type: 'earthBound', probability: 0.5, color: 'rgba(100, 100, 100, 0.7)',
     speedMultiplier: 0, size: 20, health: 20, visionRange: 0 },
 ];
 
@@ -55,12 +55,14 @@ export function createGhosts(count = ghostCount, specificType = null) {
 }
 
 function getRandomGhostType() {
-  const rand = Math.random();
-  let cumulativeProbability = 0;
+  const totalProbability = ghostTypes.reduce((acc, gt) => acc + gt.probability, 0);
+  const rand = Math.random() * totalProbability;
+  let cumulative = 0;
   for (const gt of ghostTypes) {
-    cumulativeProbability += gt.probability;
-    if (rand < cumulativeProbability) return gt;
+    cumulative += gt.probability;
+    if (rand <= cumulative) return gt;
   }
+  return ghostTypes[ghostTypes.length - 1];
 }
 
 function getRandomPosition(ghostType) {

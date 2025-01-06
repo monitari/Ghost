@@ -1,9 +1,42 @@
 import { generateMaze, drawMaze } from './maze.js';
 import { player, initializePlayer, drawPlayer } from './player.js';
-import { flashlight, drawFlashlight, initializeWallGrid, flashlightSegments, isGhostHitByRay } from './flashlight.js';
+import { flashlight, drawFlashlight, initializeWallGrid, isGhostHitByRay } from './flashlight.js';
 import { ghosts, createGhosts } from './createGhosts.js';
 import { updateGhosts } from './updateGhosts.js';
 import { keys, initializeInput, flashlightOn, debugMode, disableFlashlight, flashlightDisabledUntil, setFlashlightOn, flashlightWasOnBeforeDisable } from './input.js';
+import { playSound } from './sound.js';
+import { stats, loadStatsFromCookies, saveStatsToCookies, setCurrentNickname, incrementKillCount, incrementHitCount, incrementDebuffCount, showPlayerStats } from './stats.js';
+
+// 걷기 소리 재생 함수 추가
+let walkSound = null;
+function playWalkSound() {
+  if (!walkSound) {
+    walkSound = new Audio('sounds/player/walk.mp3');
+    walkSound.loop = true;
+  }
+  if (walkSound.paused) walkSound.play();
+}
+
+function stopWalkSound() {
+  if (walkSound && !walkSound.paused) {
+    walkSound.pause();
+    walkSound.currentTime = 0;
+  }
+}
+
+// 현재 플레이어 닉네임
+let currentNickname = '';
+
+// 게임 시작 시 통계 로드
+export function startGame(nickname) {
+  currentNickname = nickname;
+  setCurrentNickname(nickname);
+  console.log(`게임을 시작합니다, ${nickname}!`);
+  loadStatsFromCookies(nickname);
+  gameRunning = true;
+  window.gameRunning = gameRunning; // 전역 변수 업데이트
+  initializeGame();
+}
 
 export const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
@@ -23,11 +56,14 @@ export let mazeOffsetY = canvas.height / 2;
 initializePlayer();
 initializeInput(canvas);
 
-let gameRunning = true;
+let gameRunning = false; // 게임 시작 전에는 false
+window.gameRunning = gameRunning; // 전역 변수로 설정
 let flashColor = null;
 let flashTime = 0;
 
+// 업데이트 함수 수정: 프레임 속도 제한
 function update() {
+  if (!gameRunning) return; // 게임이 시작되지 않았으면 업데이트 중지
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // 플레이어 이동 (미로 이동)
@@ -43,6 +79,9 @@ function update() {
     dy = 0;
   }
 
+  if (dx !== 0 || dy !== 0) playWalkSound();
+  else stopWalkSound();
+
   const nextX = -mazeOffsetX + canvas.width / 2 - dx;
   const nextY = -mazeOffsetY + canvas.height / 2 - dy;
 
@@ -56,11 +95,9 @@ function update() {
   player.y = -mazeOffsetY + canvas.height / 2;
 
   updateGhosts();
-
-  drawMaze(ctx, flashlightOn);
+  drawMaze(ctx);
   
   if (flashlightOn) drawFlashlight(ctx);
-
   if (!debugMode && !flashlightOn) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -68,16 +105,32 @@ function update() {
   
   drawPlayer(ctx);
   drawVisibleGhosts(ctx, mazeOffsetX, mazeOffsetY);
-
   checkPlayerGhostCollision();
+
+  // 미로 출구에 도달했는지 체크
+  if (maze.exit) {
+    const exitX = maze.exit.x; // maze.cellSize 곱 제거
+    const exitY = maze.exit.y; // maze.cellSize 곱 제거
+    const exitSize = maze.cellSize;
+    //console.log(`Player Position: (${player.x}, ${player.y}), Exit Bounds: (${exitX - exitSize / 2}, ${exitX + exitSize / 2}, ${exitY - exitSize / 2}, ${exitY + exitSize / 2})`);
+    
+    // 플레이어의 크기를 반영하여 조건 수정
+    if (
+      player.x + player.size > exitX - exitSize / 2 &&
+      player.x - player.size < exitX + exitSize / 2 &&
+      player.y + player.size > exitY - exitSize / 2 &&
+      player.y - player.size < exitY + exitSize / 2
+    ) {
+      gameClear();
+      return;
+    }
+  }
   
   // 디버프 상태 업데이트 및 전등 자동 조절
   player.debuffs.forEach(debuff => {
     if (Date.now() > debuff.expiresAt) {
       player.removeDebuff(debuff.type);
-      if (debuff.type === 'flashlightDisabled') {
-        setFlashlightOn(flashlightWasOnBeforeDisable); // 이전 상태로 복원
-      }
+      if (debuff.type === 'flashlightDisabled') setFlashlightOn(flashlightWasOnBeforeDisable); // 이전 상태로 복원
     }
   });
 
@@ -93,9 +146,7 @@ function update() {
   }
 
   if (gameRunning) {
-    setTimeout(() => {
-      requestAnimationFrame(update);
-    }, 1000 / 300);
+    requestAnimationFrame(update); // setTimeout 제거
   }
 }
 
@@ -130,7 +181,7 @@ function drawVisibleGhosts(ctx, mazeOffsetX, mazeOffsetY) {
     }
 
     // 경고 표시 조건 수정
-    if (distance < maze.cellSize && !isGhostVisible) {
+    if (distance < maze.cellSize * 1.5 && !isGhostVisible) {
       ctx.fillStyle = ghost.color;
       ctx.font = 'bold 40px Arial';
       ctx.textAlign = 'center';
@@ -162,13 +213,22 @@ function checkPlayerGhostCollision() {
       const ghostType = ghost.type;
       ghosts.splice(index, 1);
       createGhosts(1, ghostType);
-      if (ghost.type === 'charger') disableFlashlight(3000); // 3초간 전등 사용 불가
+      
+      playSound('sounds/effect/hit.mp3', 1000, 500, 0, 0.8);
+      // 유령 타입에 따라 다른 효과음 재생
+      if (ghost.type === 'charger') {
+        playSound('sounds/player/player-hit-long.mp3', 1000, 500, 0.8, 1.0);
+        disableFlashlight(3000); // 3초간 전등 사용 불가
+      } 
+      else playSound('sounds/player/player-hit-short.mp3', 1000, 500, 0.8, 1.0);
+
       if (ghost.type === 'earthBound') {
         player.addDebuff({
           type: 'immobilized',
           expiresAt: Date.now() + 3000 // 3초간 움직이지 못하게 함
         });
       }
+      incrementHitCount(ghostType); // 유령 타입별 닿은 횟수 증가
     }
   });
 }
@@ -201,4 +261,39 @@ function initializeGame() {
   update();
 }
 
-initializeGame();
+function drawInitial() {
+  generateMaze(1, 1, 3); // 미로 생성
+  initializeWallGrid();   // 벽 그리드 초기화
+  drawMaze(ctx, flashlightOn);
+  drawFlashlight(ctx);    // 전등 그리기 추가
+  drawPlayer(ctx);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  drawInitial(); // 초기 미로와 플레이어 그리기
+});
+
+// 게임 클리어 함수 추가
+function gameClear() {
+  gameRunning = false;
+  window.gameRunning = gameRunning; // 전역 변수 업데이트
+  stats.clears++; // 클리어 횟수 증가
+  saveStatsToCookies(); // 변경 시 저장
+  showGameClearScreen(); // 게임 클리어 화면 표시
+}
+
+// 게임 클리어 화면 표시 함수 추가
+function showGameClearScreen() {
+  const overlay = document.getElementById('overlay');
+  overlay.innerHTML = `
+    <h1>게임 클리어!</h1>
+    <p>축하합니다, ${currentNickname}님!</p>
+    <p>클리어 횟수: ${stats.clears}</p>
+    <button id="restart-button">다시 시작</button>
+  `;
+  overlay.style.display = 'flex';
+
+  document.getElementById('restart-button').addEventListener('click', () => {
+    location.reload();
+  });
+}

@@ -1,3 +1,4 @@
+import { debugMode } from './input.js';
 import { maze, mazeOffsetX, mazeOffsetY } from './main.js';
 
 export function generateMaze(playerStartCol, playerStartRow, safeZoneRadius) {
@@ -10,6 +11,7 @@ export function generateMaze(playerStartCol, playerStartRow, safeZoneRadius) {
   function dfs(x, y) {
     const directions = [ [-1, 0], [1, 0], [0, -1], [0, 1] ];
     
+    // 방향을 랜덤하게 섞어 미로의 다양성 증대
     for (let i = directions.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [directions[i], directions[j]] = [directions[j], directions[i]];
@@ -24,7 +26,7 @@ export function generateMaze(playerStartCol, playerStartRow, safeZoneRadius) {
       if (newX > 0 && newX < cols - 1 && newY > 0 && newY < rows - 1 
         && !mazeGrid[newX][newY]) {
         mazeGrid[x + dx][y + dy] = true;
-        dfs(newX, newY);
+        dfs(newX, newY); // 재귀 호출로 미로 확장
       }
     }
   }
@@ -98,9 +100,14 @@ function createExit(mazeGrid, cols, rows, startX, startY) {
     exitY = Math.floor(Math.random() * rows);
   } 
   while (!mazeGrid[exitX][exitY] || (exitX === startX && exitY === startY) ||
-    (Math.abs(exitX - centerX) < 10 && Math.abs(exitY - centerY) < 10) );
+    (Math.abs(exitX - centerX) < 10 && Math.abs(exitY - centerY) < 10));
 
-  maze.exit = { x: exitX, y: exitY };
+  // 출구 좌표를 월드 좌표로 변환
+  maze.exit = { 
+    x: (exitX - Math.floor(cols / 2)) * maze.cellSize, 
+    y: (exitY - Math.floor(rows / 2)) * maze.cellSize 
+  };
+  
   carveExitPath(mazeGrid, startX, startY, exitX, exitY, cols, rows);
 }
 
@@ -133,7 +140,7 @@ function carveExitPath(mazeGrid, startX, startY, exitX, exitY, cols, rows) {
   carve(startX, startY);
 }
 
-export function drawMaze(ctx, flashlightOn) {
+export function drawMaze(ctx) {
   ctx.fillStyle = "white";
   maze.walls.forEach((wall) => {
     ctx.fillRect(
@@ -144,7 +151,7 @@ export function drawMaze(ctx, flashlightOn) {
     );
   });
 
-  if (!flashlightOn) {
+  if (debugMode) {
     ctx.fillStyle = "gray";
     maze.exitPath.forEach((cell) => {
       ctx.fillRect(
@@ -157,10 +164,10 @@ export function drawMaze(ctx, flashlightOn) {
   }
 
   if (maze.exit) {
-    ctx.fillStyle = "green";
+    ctx.fillStyle = "red";
     ctx.fillRect(
-      (maze.exit.x - Math.floor(maze.width / maze.cellSize / 2)) * maze.cellSize + mazeOffsetX,
-      (maze.exit.y - Math.floor(maze.height / maze.cellSize / 2)) * maze.cellSize + mazeOffsetY,
+      maze.exit.x + mazeOffsetX,
+      maze.exit.y + mazeOffsetY,
       maze.cellSize,
       maze.cellSize
     );

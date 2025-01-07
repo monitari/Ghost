@@ -8,25 +8,27 @@ export function generateMaze(playerStartCol, playerStartRow, safeZoneRadius) {
   maze.walls = [];
   maze.exitPath = [];
 
+  const maxIterations = 100000;
+  let iterationCount = 0;
+
   function dfs(x, y) {
     const directions = [ [-1, 0], [1, 0], [0, -1], [0, 1] ];
-    
-    // 방향을 랜덤하게 섞어 미로의 다양성 증대
     for (let i = directions.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [directions[i], directions[j]] = [directions[j], directions[i]];
     }
-
     mazeGrid[x][y] = true;
-
     for (const [dx, dy] of directions) {
       const newX = x + dx * 2;
       const newY = y + dy * 2;
-
-      if (newX > 0 && newX < cols - 1 && newY > 0 && newY < rows - 1 
-        && !mazeGrid[newX][newY]) {
+      if (newX > 0 && newX < cols - 1 && newY > 0 && newY < rows - 1 && !mazeGrid[newX][newY]) {
+        iterationCount++;
+        if (iterationCount > maxIterations) {
+          console.warn('미로 생성 중 반복 횟수가 너무 많아 무한 루프를 방지했습니다.');
+          break;
+        }
         mazeGrid[x + dx][y + dy] = true;
-        dfs(newX, newY); // 재귀 호출로 미로 확장
+        dfs(newX, newY);
       }
     }
   }
@@ -61,7 +63,6 @@ function createRandomRooms(mazeGrid, cols, rows) {
     const roomHeight = Math.floor(Math.random() * 3) + 3;
     const roomX = Math.floor(Math.random() * (cols - roomWidth - 2)) + 1;
     const roomY = Math.floor(Math.random() * (rows - roomHeight - 2)) + 1;
-
     for (let x = roomX; x < roomX + roomWidth; x++) {
       for (let y = roomY; y < roomY + roomHeight; y++) mazeGrid[x][y] = true;
     }
@@ -98,11 +99,9 @@ function createExit(mazeGrid, cols, rows, startX, startY) {
   do {
     exitX = Math.floor(Math.random() * cols);
     exitY = Math.floor(Math.random() * rows);
-  } 
-  while (!mazeGrid[exitX][exitY] || (exitX === startX && exitY === startY) ||
+  } while (!mazeGrid[exitX][exitY] || (exitX === startX && exitY === startY) ||
     (Math.abs(exitX - centerX) < 10 && Math.abs(exitY - centerY) < 10));
 
-  // 출구 좌표를 월드 좌표로 변환
   maze.exit = { 
     x: (exitX - Math.floor(cols / 2)) * maze.cellSize, 
     y: (exitY - Math.floor(rows / 2)) * maze.cellSize 
@@ -114,21 +113,12 @@ function createExit(mazeGrid, cols, rows, startX, startY) {
 function carveExitPath(mazeGrid, startX, startY, exitX, exitY, cols, rows) {
   function carve(x, y) {
     if (x === exitX && y === exitY) return true;
-
-    const directions = [
-      [-1, 0], [1, 0], [0, -1], [0, 1]
-    ];
-
+    const directions = [ [-1, 0], [1, 0], [0, -1], [0, 1] ];
     for (const [dx, dy] of directions) {
       const newX = x + dx;
       const newY = y + dy;
-
-      if (
-        newX >= 0 && newX < cols &&
-        newY >= 0 && newY < rows &&
-        mazeGrid[newX][newY] &&
-        !maze.exitPath.some(cell => cell.x === newX && cell.y === newY)
-      ) {
+      if (newX >= 0 && newX < cols && newY >= 0 && newY < rows && mazeGrid[newX][newY] &&
+        !maze.exitPath.some(cell => cell.x === newX && cell.y === newY)) {
         maze.exitPath.push({ x: newX, y: newY });
         if (carve(newX, newY)) return true;
         maze.exitPath.pop();
@@ -136,7 +126,6 @@ function carveExitPath(mazeGrid, startX, startY, exitX, exitY, cols, rows) {
     }
     return false;
   }
-
   carve(startX, startY);
 }
 

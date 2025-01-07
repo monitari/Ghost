@@ -3,7 +3,7 @@ import { player } from './player.js';
 import { flashlight, isGhostHitByRay } from './flashlight.js';
 import { ghosts, createGhosts, ghostCount } from './createGhosts.js';
 import { flashlightOn, flashlightWasOnBeforeDisable, setFlashlightOn, debugMode } from './input.js';
-import { incrementKillCount } from './stats.js'; // 추가
+import { incrementKillCount } from './stats.js';
 
 const ghostDeathSounds = [
   { src: 'sounds/ghost/ghost-death1.mp3', startTime: 0, volume: 0.5 },
@@ -25,54 +25,51 @@ function handleGhostDeath(ghost, index) {
   createGhosts(1, ghostType);
   const randomSound = ghostDeathSounds[Math.floor(Math.random() * ghostDeathSounds.length)];
   playSound(randomSound.src, 600, 500, randomSound.startTime, randomSound.volume);
-  
-  // 유령 타입 별 처치 횟수 증가
   incrementKillCount(ghostType);
-  
   if (ghost.type === 'earthBound') {
-    player.addDebuff({
-      type: 'immobilized',
-      expiresAt: Date.now() + 3000 // 3초간 움직이지 못하게 함
-    });
+    player.addDebuff({ type: 'immobilized', expiresAt: Date.now() + 3000 });
   }
 }
 
 function handleGhostFading(ghost) {
-  // 기존 fade/appear 로직을 이 함수에 통합
   if (ghost.fading) {
     ghost.opacity -= 0.1; 
     if (ghost.opacity <= 0) {
-      let newX, newY;
-      const playerX = -mazeOffsetX + canvas.width / 2;
-      const playerY = -mazeOffsetY + canvas.height / 2;
-      do {
-        newX = Math.random() * maze.width - maze.width / 2;
-        newY = Math.random() * maze.height - maze.height / 2;
-      } while (
-        newX > playerX - maze.cellSize * 2 && newX < playerX + maze.cellSize * 2 &&
-        newY > playerY - maze.cellSize * 2 && newY < playerY + maze.cellSize * 2
-      );
-      ghost.x = newX;
-      ghost.y = newY;
+      relocateGhost(ghost);
       ghost.opacity = 0;
       ghost.fading = false;
-      ghost.appearing = true; // 나타나는 상태로 전환
+      ghost.appearing = true;
     }
   } else if (ghost.appearing) {
     ghost.opacity += 0.1;
     if (ghost.opacity >= 1) {
       ghost.opacity = 1;
-      ghost.appearing = false; // 나타나는 상태 종료
+      ghost.appearing = false;
     }
   }
 }
 
+function relocateGhost(ghost) {
+  let newX, newY;
+  const playerX = -mazeOffsetX + canvas.width / 2;
+  const playerY = -mazeOffsetY + canvas.height / 2;
+  do {
+    newX = Math.random() * maze.width - maze.width / 2;
+    newY = Math.random() * maze.height - maze.height / 2;
+  } while (
+    newX > playerX - maze.cellSize * 2 && newX < playerX + maze.cellSize * 2 &&
+    newY > playerY - maze.cellSize * 2 && newY < playerY + maze.cellSize * 2
+  );
+  ghost.x = newX;
+  ghost.y = newY;
+}
+
 export function updateGhosts() {
-  if (!gameRunning) return; // 게임이 시작되지 않았으면 유령 업데이트 중지
+  if (!gameRunning) return;
 
   const currentTime = Date.now();
   const ghostTypeCounts = { 
-    follower: 0, random: 0, teleporter: 0, weepingAngel: 0, charger: 0, earthBound: 0 
+    follower: 0, random: 0, teleporter: 0, weepingAngel: 0, charger: 0, earthBound: 0, shadow: 0
   };
 
   ghosts.forEach((ghost, index) => {
@@ -92,70 +89,74 @@ export function updateGhosts() {
       if (ghost.health <= 0) handleGhostDeath(ghost, index);
     }
 
-    // 먼저 appearing 상태 처리를 진행
-    if (ghost.appearing) {
-      ghost.opacity = Math.min(ghost.opacity + 0.05, 1);
-      if (ghost.opacity >= 1) ghost.appearing = false;
-    }
-
-    // 모든 유령이 동일하게 투명도 조절
-    if (flashlightOn && isGhostHitByRay(ghost)) ghost.opacity = Math.min(ghost.opacity + 0.05, 1);
-    else if (flashlightOn) ghost.opacity = Math.max(ghost.opacity - 0.05, 0.2);
-    else { // 플래시라이트가 꺼져 있을 때 모든 유령의 투명도를 0.2로 유지
-      ghost.opacity = Math.max(ghost.opacity - 0.05, 0.2);
-    }
-
+    handleGhostOpacity(ghost, distance);
     if (ghost.type === 'charger') handleChargerMovement(ghost, player.x, player.y);
     else handleGhostFading(ghost);
 
-    if (ghost.type === 'earthBound') { // 지박령은 항상 안보이고, 경고등으로만 위치를 파악할 수 있음
+    if (ghost.type === 'earthBound') {
       ghost.opacity = debugMode ? 0.2 : 0;
+    }
+
+    if (ghost.shadow) {
+      handleShadowMovement(ghost, distance);
+    }
+
+    if (ghost.type === 'shadow') {
+      // 플레이어와의 거리 계산
+      const dx = player.x - ghost.x;
+      const dy = player.y - ghost.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // 시야 범위 내인지 확인
+      const inSight = dist < ghost.visionRange;
+
+      if (!inSight || flashlightOn) {
+        // 평소 흔들리며 발작
+        const angle = Math.random() * Math.PI * 2;
+        ghost.dx = Math.cos(angle) * ghost.speed;
+        ghost.dy = Math.sin(angle) * ghost.speed;
+      } else {
+        // 플레이어 쪽으로 접근 또는 돌진
+        const angle = Math.atan2(dy, dx);
+        const speed = ghost.speed * 2.5; // 돌진 속도
+        ghost.dx = Math.cos(angle) * speed;
+        ghost.dy = Math.sin(angle) * speed;
+      }
     }
   });
 
   while (ghosts.length < ghostCount && !summonedAllFirstGhosts(ghostTypeCounts)) 
     createGhosts(1);
   
-  // 디버프 만료 확인 및 전등 상태 재조정
   player.debuffs = player.debuffs.filter(debuff => {
     if (currentTime > debuff.expiresAt) {
       player.removeDebuff(debuff.type);
-      return false; // 제거
+      return false;
     }
-    return true; // 유지
+    return true;
   });
 
-  // 활성화된 'flashlightDisabled' 디버프가 있는지 확인
   const hasFlashlightDebuff = player.debuffs.some(debuff => debuff.type === 'flashlightDisabled');
-
-  if (!hasFlashlightDebuff) setFlashlightOn(flashlightWasOnBeforeDisable); // 이전 상태로 복원
+  if (!hasFlashlightDebuff) setFlashlightOn(flashlightWasOnBeforeDisable);
 }
 
 function updateGhostMovement(ghost, currentTime) {
   const playerX = -mazeOffsetX + canvas.width / 2;
   const playerY = -mazeOffsetY + canvas.height / 2;
-
   const dx = playerX - ghost.x;
   const dy = playerY - ghost.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
 
-  if (ghost.type === 'follower') {
-    if (distance < ghost.visionRange) { // 무한을 의미하는 Infinity와 비교
-      const angle = Math.atan2(dy, dx);
-      ghost.dx = Math.cos(angle) * ghost.speed;
-      ghost.dy = Math.sin(angle) * ghost.speed;
-    }
-  } 
-  else if (ghost.type === 'teleporter') {
+  if (ghost.type === 'follower' && distance < ghost.visionRange) {
+    const angle = Math.atan2(dy, dx);
+    ghost.dx = Math.cos(angle) * ghost.speed;
+    ghost.dy = Math.sin(angle) * ghost.speed;
+  } else if (ghost.type === 'teleporter') {
     handleTeleporterMovement(ghost, currentTime, playerX, playerY);
-  }
-  else if (ghost.type === 'weepingAngel') {
+  } else if (ghost.type === 'weepingAngel') {
     handleWeepingAngelMovement(ghost, playerX, playerY);
-  }
-  else if (ghost.type === 'charger') {
-    if (distance < ghost.visionRange) {
-      handleChargerMovement(ghost, playerX, playerY);
-    }
+  } else if (ghost.type === 'charger' && distance < ghost.visionRange) {
+    handleChargerMovement(ghost, playerX, playerY);
   }
 }
 
@@ -168,16 +169,7 @@ function handleTeleporterMovement(ghost, currentTime, playerX, playerY) {
   if (ghost.fading) {
     ghost.opacity -= 0.1; 
     if (ghost.opacity <= 0) {
-      let newX, newY;
-      do {
-        newX = Math.random() * maze.width - maze.width / 2;
-        newY = Math.random() * maze.height - maze.height / 2;
-      } while (
-        newX > playerX - maze.cellSize * 2 && newX < playerX + maze.cellSize * 2 &&
-        newY > playerY - maze.cellSize * 2 && newY < playerY + maze.cellSize * 2
-      );
-      ghost.x = newX;
-      ghost.y = newY;
+      relocateGhost(ghost);
       ghost.opacity = 0;
       ghost.fading = false;
       ghost.appearing = true;
@@ -188,8 +180,7 @@ function handleTeleporterMovement(ghost, currentTime, playerX, playerY) {
       ghost.opacity = 0.2;
       ghost.appearing = false;
     }
-  } 
-  else if (ghost.opacity < 0.2) {
+  } else if (ghost.opacity < 0.2) {
     ghost.opacity = Math.min(ghost.opacity + 0.1, 0.2);
   }
 }
@@ -199,7 +190,6 @@ function handleWeepingAngelMovement(ghost, playerX, playerY) {
   const dy = playerY - ghost.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
 
-  // 플레이어가 유령의 시야 범위 내에 있을 때 + 플레이어가 유령을 바라보고 있지 않을 때
   if (distance < ghost.visionRange && !player.isLookingAt(ghost)) {
     const angle = Math.atan2(dy, dx);
     ghost.dx = Math.cos(angle) * ghost.speed;
@@ -220,31 +210,26 @@ function handleChargerMovement(ghost, playerX, playerY) {
     ghost.dx = Math.cos(angle) * ghost.speed;
     ghost.dy = Math.sin(angle) * ghost.speed;
 
-    // 플레이어와 충돌 시 디버프 적용
     if (distance < player.size + ghost.size) {
       ghost.charging = false;
-      ghost.cooldown = 3000; // 3초 쿨타임
+      ghost.cooldown = 3000;
     } else if (distance < flashlight.maxDistance * 0.4 && !isGhostHitByRay(ghost)) {
-      // 돌진을 놓쳤을 때
       ghost.charging = false;
-      ghost.cooldown = 3000; // 3초 쿨타임
-      ghost.speed *= 0.5; // 속도 감소
+      ghost.cooldown = 3000;
+      ghost.speed *= 0.5;
     }
   } else if (ghost.cooldown > 0) {
-    ghost.cooldown -= 16.67; // 약 60 FPS 기준 프레임당 감소
+    ghost.cooldown -= 16.67;
     if (ghost.cooldown <= 0) {
       ghost.cooldown = 0;
       if (isGhostHitByRay(ghost)) {
         ghost.charging = true;
-        ghost.speed *= 2; // 속도 2배 증가
+        ghost.speed *= 2;
       }
     }
-  } else {
-    // 플레이어가 충전 범위에 들어왔을 때
-    if (distance < ghost.visionRange) {
-      ghost.charging = true;
-      ghost.speed *= 2; // 속도 2배 증가
-    }
+  } else if (distance < ghost.visionRange) {
+    ghost.charging = true;
+    ghost.speed *= 2;
   }
 }
 
@@ -269,7 +254,7 @@ function createSpecialEffect(x, y, color) {
   effect.style.top = `${y + mazeOffsetY}px`;
   effect.style.width = '20px';
   effect.style.height = '20px';
-  effect.style.backgroundColor = color; // 유령의 고유 색상으로 설정
+  effect.style.backgroundColor = color;
   effect.style.borderRadius = '50%';
   effect.style.transition = 'transform 0.5s, opacity 0.5s';
   document.body.appendChild(effect);
@@ -282,4 +267,32 @@ function createSpecialEffect(x, y, color) {
   setTimeout(() => {
     document.body.removeChild(effect);
   }, 500);
+}
+
+function summonedAllFirstGhosts(ghostTypeCounts) {
+  const requiredCounts = {
+    follower: 1, random: 1, teleporter: 1, weepingAngel: 1, charger: 1, earthBound: 1, shadow: 1,
+  };
+  return Object.keys(requiredCounts).every(type => ghostTypeCounts[type] >= requiredCounts[type]);
+}
+
+function handleGhostOpacity(ghost, distance) {
+  if (flashlightOn && isGhostHitByRay(ghost)) {
+    ghost.opacity = Math.min(ghost.opacity + 0.05, 1);
+  } else if (flashlightOn) {
+    ghost.opacity = Math.max(ghost.opacity - 0.05, 0.2);
+  } else {
+    ghost.opacity = Math.max(ghost.opacity - 0.05, 0.2);
+  }
+}
+
+function handleShadowMovement(ghost, distance) {
+  let angle;
+  if (flashlightOn && (distance < ghost.visionRange)) {
+    angle = Math.random() * Math.PI * 2;
+  } else {
+    angle = Math.atan2(player.x - ghost.x, player.y - ghost.y);
+  }
+  ghost.dx = Math.cos(angle) * ghost.speed;
+  ghost.dy = Math.sin(angle) * ghost.speed;
 }

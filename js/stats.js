@@ -6,6 +6,7 @@ export const stats = {
     weepingAngel: 0,
     charger: 0,
     earthBound: 0,
+    shadow: 0,
   },
   hits: { // 유령 타입별 닿은 횟수 추가
     follower: 0,
@@ -14,10 +15,12 @@ export const stats = {
     weepingAngel: 0,
     charger: 0,
     earthBound: 0,
+    shadow: 0,
   },
   debuffs: { // 디버프 별 획득 횟수 추가
     immobilized: 0,
     flashlightDisabled: 0,
+    warningHidden: 0, // 경고 표시 숨김 디버프 횟수 추가
     // 다른 디버프 타입도 여기에 추가
   },
   clears: 0, // 게임 클리어 횟수 추가
@@ -110,14 +113,15 @@ export function incrementDebuffCount(debuffType) {
 export function updatePlayerStats() {
   const statsList = document.getElementById('stats-list');
   statsList.innerHTML = `
-    <li>킬 수: ${stats.kills.follower + stats.kills.random + stats.kills.teleporter + stats.kills.weepingAngel + stats.kills.charger + stats.kills.earthBound}</li>
+    <li>킬 수: ${stats.kills.follower + stats.kills.random + stats.kills.teleporter + stats.kills.weepingAngel + stats.kills.charger + stats.kills.earthBound + stats.kills.shadow}</li>
     <li>팔로워 킬: ${stats.kills.follower}</li>
     <li>랜덤 킬: ${stats.kills.random}</li>
     <li>텔레포터 킬: ${stats.kills.teleporter}</li>
     <li>위핑 엔젤 킬: ${stats.kills.weepingAngel}</li>
     <li>차저 킬: ${stats.kills.charger}</li>
     <li>어스본드 킬: ${stats.kills.earthBound}</li>
-    <li>닿은 횟수: ${stats.hits.follower + stats.hits.random + stats.hits.teleporter + stats.hits.weepingAngel + stats.hits.charger + stats.hits.earthBound}</li>
+    <li>그림자 킬: ${stats.kills.shadow}</li>
+    <li>닿은 횟수: ${stats.hits.follower + stats.hits.random + stats.hits.teleporter + stats.hits.weepingAngel + stats.hits.charger + stats.hits.earthBound + stats.hits.shadow}</li>
       <ul>
         <li>팔로워: ${stats.hits.follower}</li>
         <li>랜덤: ${stats.hits.random}</li>
@@ -125,12 +129,14 @@ export function updatePlayerStats() {
         <li>위핑 엔젤: ${stats.hits.weepingAngel}</li>
         <li>차저: ${stats.hits.charger}</li>
         <li>어스본드: ${stats.hits.earthBound}</li>
+        <li>그림자: ${stats.hits.shadow}</li>
       </ul>
     </li>
     <li>디버프: 
       <ul>
         <li>움직이지 못함: ${stats.debuffs.immobilized}</li>
         <li>플래시라이트 사용 불가: ${stats.debuffs.flashlightDisabled}</li>
+        <li>경고 표시 숨김: ${stats.debuffs.warningHidden}</li>
       </ul>
     </li>
     <li>클리어 횟수: ${stats.clears}</li>

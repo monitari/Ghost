@@ -8,6 +8,10 @@
   <link rel="icon" href="data:,">
 </head>
 <body>
+  <div id="loading-screen">
+    <h1>로딩 중...</h1>
+  </div>
+  
   <canvas id="game-canvas"></canvas>
   <div id="overlay">
     <input type="text" id="nickname-input" placeholder="닉네임을 입력하세요">
@@ -22,6 +26,8 @@
   </div>
   <script type="module" src="js/main.js" defer></script>
   <script type="module">
+    console.log('index.html 스크립트 실행');
+
     import { startGame } from './js/main.js';
     import { showPlayerStats } from './js/stats.js';
     window.startGame = startGame;

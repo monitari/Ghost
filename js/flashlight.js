@@ -1,12 +1,11 @@
 import { canvas, maze, mazeOffsetX, mazeOffsetY } from './main.js';
-import { player } from './player.js'; // player를 가져옵니다
 
 export const flashlight = {
   angle: 0,
-  fov: Math.PI / 4, // 각도를 줄임 (45도)
-  rayCount: 60, // 레이 수 줄임 (150에서 60으로 감소)
-  maxDistance: 800, // 길이를 늘림
-  rayCache: new Map(), // 레이 캐싱
+  fov: Math.PI / 4,
+  rayCount: 60,
+  maxDistance: 800,
+  rayCache: new Map(),
 };
 
 export const flashlightSegments = [];
@@ -196,13 +195,6 @@ export function drawFlashlight(ctx) {
 }
 
 export function isGhostHitByRay(ghost) {
-  if (ghost.visionRange !== Infinity) {
-    const dx = ghost.x - player.x;
-    const dy = ghost.y - player.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    if (distance > ghost.visionRange) return false;
-  }
-
   const ghostWorldX = ghost.x + mazeOffsetX;
   const ghostWorldY = ghost.y + mazeOffsetY;
   for (const segment of flashlightSegments) {

@@ -16,6 +16,8 @@
   <div id="overlay">
     <input type="text" id="nickname-input" placeholder="닉네임을 입력하세요">
     <button id="start-button">시작</button>
+    <!-- 모든 stat 쿠키 삭제 버튼 추가 -->
+    <button id="delete-stats-button" style="position: absolute; bottom: 10px; right: 10px;">모든 통계 삭제</button>
   </div>
   <!-- 플레이어 통계 표시 요소 추가 -->
   <div id="player-stats" style="display: none;">
@@ -24,14 +26,21 @@
       <!-- 통계 항목들이 여기에 추가됩니다 -->
     </ul>
   </div>
+  <!-- 디버프 표시 요소 추가 -->
+  <div id="debuff-display"></div>
+  <!-- 유령 개체수 표시 요소 추가 -->
+  <div id="ghost-count-display"></div>
+  <!-- 게임 타이머 표시 요소 추가 -->
+  <div id="game-timer"></div>
   <script type="module" src="js/main.js" defer></script>
   <script type="module">
     console.log('index.html 스크립트 실행');
 
     import { startGame } from './js/main.js';
-    import { showPlayerStats } from './js/stats.js';
+    import { showPlayerStats, deleteAllStatsCookies } from './js/uistats.js';
     window.startGame = startGame;
     window.showPlayerStats = showPlayerStats;
+    window.deleteAllStatsCookies = deleteAllStatsCookies;
 
     document.getElementById('start-button').addEventListener('click', () => {
       try {
@@ -46,6 +55,13 @@
       } catch (error) {
         console.error('게임 시작 중 오류 발생:', error);
         alert('게임을 시작하는 중 문제가 발생했습니다. 콘솔을 확인해주세요.');
+      }
+    });
+
+    document.getElementById('delete-stats-button').addEventListener('click', () => {
+      if (confirm('모든 통계를 삭제하시겠습니까?')) {
+        window.deleteAllStatsCookies();
+        alert('모든 통계가 삭제되었습니다.');
       }
     });
   </script>

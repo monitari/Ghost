@@ -17,7 +17,6 @@ export let flashlightDisabledUntil = 0;
 export let flashlightWasOnBeforeDisable = true;
 
 export function initializeInput() {
-  console.log('입력 초기화 시작');
   document.addEventListener("keydown", handleKeyDown);
   document.addEventListener("keyup", handleKeyUp);
   canvas.addEventListener("mousemove", handleMouseMove);
@@ -25,14 +24,14 @@ export function initializeInput() {
 
 function handleKeyDown(e) {
   if (!window.gameRunning) return;
-  if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
-  if (e.key === 'e') handleFlashlightToggle();
-  if (e.key === 'h') toggleDebugMode();
+  if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true;
+  if (e.key.toLowerCase() === 'e') handleFlashlightToggle();
+  if (e.key.toLowerCase() === 'h') toggleDebugMode();
 }
 
 function handleKeyUp(e) {
   if (!window.gameRunning) return;
-  if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+  if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false;
 }
 
 function handleMouseMove(e) {
@@ -86,6 +85,15 @@ export function disableFlashlight(duration) {
 export function immobilizePlayer(duration) {
   const debuff = {
     type: 'immobilized',
+    expiresAt: Date.now() + duration
+  };
+  player.addDebuff(debuff);
+  dispatchStatsUpdatedEvent();
+}
+
+export function hideWarning(duration) {
+  const debuff = {
+    type: 'warningHidden',
     expiresAt: Date.now() + duration
   };
   player.addDebuff(debuff);

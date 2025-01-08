@@ -1,3 +1,7 @@
+import { ghosts } from './createGhosts.js';
+import { maze, mazeOffsetX, mazeOffsetY, canvas } from './main.js';
+import { player } from './player.js';
+
 export const stats = {
   kills: {
     follower: 0,
@@ -27,6 +31,11 @@ export const stats = {
 };
 
 let currentNickname = '';
+let gameStartTime = 0; // 게임 시작 시간
+
+export function setGameStartTime(time) {
+  gameStartTime = time;
+}
 
 // 쿠키에서 통계 로드 (닉네임 기반)
 export function loadStatsFromCookies(nickname) {
@@ -143,6 +152,71 @@ export function updatePlayerStats() {
   `;
 }
 
+export function updateGhostCountDisplay() {
+  const ghostCountDisplay = document.getElementById('ghost-count-display');
+  ghostCountDisplay.innerText = `유령 개체수: ${ghosts.length}`;
+}
+
+export function updateGameTimer() {
+  const gameTimerDisplay = document.getElementById('game-timer');
+  const elapsedTime = Math.floor((Date.now() - gameStartTime) / 1000);
+  const minutes = String(Math.floor(elapsedTime / 60)).padStart(2, '0');
+  const seconds = String(elapsedTime % 60).padStart(2, '0');
+  gameTimerDisplay.innerText = `${minutes}:${seconds}`;
+}
+
+export function updateDebuffDisplay() {
+  const debuffDisplay = document.getElementById('debuff-display');
+  debuffDisplay.innerHTML = '';
+  player.debuffs.forEach(debuff => {
+    const debuffElement = document.createElement('div');
+    debuffElement.className = 'debuff';
+    debuffElement.innerText = getDebuffName(debuff.type);
+    debuffDisplay.appendChild(debuffElement);
+  });
+}
+
+export function getDebuffName(debuffType) {
+  switch (debuffType) {
+    case 'immobilized':
+      return '움직이지 못함';
+    case 'flashlightDisabled':
+      return '플래시라이트 사용 불가';
+    case 'warningHidden':
+      return '경고 표시 숨김';
+    default:
+      return '알 수 없음';
+  }
+}
+
+const compassImage = new Image();
+compassImage.src = 'images/compass-needle.svg';
+
+export function drawArrowToExit(ctx) {
+  if (!maze.exit) return;
+  const compassSize = 20; // 나침반 크기 조정
+  const playerX = canvas.width / 2;
+  const playerY = canvas.height / 2;
+  const exitX = maze.exit.x + mazeOffsetX;
+  const exitY = maze.exit.y + mazeOffsetY;
+  const dx = exitX - playerX;
+  const dy = exitY - playerY;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const angle = Math.atan2(dy, dx);
+
+  ctx.save();
+  ctx.translate(playerX, playerY - player.size - 20);
+  ctx.rotate(angle + Math.PI / 2);
+  ctx.translate(-compassSize / 2, -compassSize / 2); // 나침반 중심으로 이동
+  ctx.drawImage(compassImage, 0, 0, compassSize, compassSize);
+  ctx.restore();
+
+  // ctx.fillStyle = 'white';
+  // ctx.font = '16px Arial';
+  // ctx.textAlign = 'center';
+  // ctx.fillText(`${Math.round(distance)}`, playerX, playerY - player.size - 40);
+}
+
 export function showPlayerStats() {
   const statsDiv = document.getElementById('player-stats');
   statsDiv.style.display = 'block';
@@ -150,4 +224,29 @@ export function showPlayerStats() {
 
   // 게임 통계가 업데이트될 때마다 통계 표시를 갱신하도록 이벤트 리스너 추가
   window.addEventListener('statsUpdated', updatePlayerStats);
+}
+
+export function showGameClearScreen() {
+  const overlay = document.getElementById('overlay');
+  overlay.innerHTML = `
+    <h1>게임 클리어!</h1>
+    <p>축하합니다, ${currentNickname}님!</p>
+    <p>클리어 횟수: ${stats.clears}</p>
+    <button id="restart-button">다시 시작</button>
+  `;
+  overlay.style.display = 'flex';
+
+  document.getElementById('restart-button').addEventListener('click', () => {
+    location.reload();
+  });
+}
+
+export function deleteAllStatsCookies() {
+  const cookies = document.cookie.split('; ');
+  cookies.forEach(cookie => {
+    const [key] = cookie.split('=');
+    if (key.startsWith('gameStats_')) {
+      document.cookie = `${key}=; path=/; max-age=0`;
+    }
+  });
 }

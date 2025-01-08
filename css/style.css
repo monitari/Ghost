@@ -81,3 +81,37 @@ canvas {
 .debuff {
   margin-bottom: 5px;
 }
+
+/* 유령 개체수 표시 스타일 추가 */
+#ghost-count-display {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+}
+
+/* 게임 타이머 표시 스타일 추가 */
+#game-timer {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  color: white;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+}
+
+/* 화살표와 거리 텍스트 스타일 추가 */
+#arrow-to-exit {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: yellow;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  text-align: center;
+}

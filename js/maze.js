@@ -1,5 +1,6 @@
 import { debugMode } from './input.js';
 import { maze, mazeOffsetX, mazeOffsetY } from './main.js';
+import { player } from './player.js';
 
 export function generateMaze(playerStartCol, playerStartRow, safeZoneRadius) {
   const cols = Math.floor(maze.width / maze.cellSize);
@@ -153,7 +154,11 @@ export function drawMaze(ctx) {
   }
 
   if (maze.exit) {
-    ctx.fillStyle = "red";
+    const dx = player.x - (maze.exit.x + maze.cellSize / 2);
+    const dy = player.y - (maze.exit.y + maze.cellSize / 2);
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    ctx.fillStyle = distance < maze.cellSize ? "red" : "black";
     ctx.fillRect(
       maze.exit.x + mazeOffsetX,
       maze.exit.y + mazeOffsetY,

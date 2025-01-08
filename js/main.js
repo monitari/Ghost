@@ -31,6 +31,31 @@ let flashTime = 0;
 export let mazeOffsetX = canvas.width / 2;
 export let mazeOffsetY = canvas.height / 2;
 
+const preloadedSounds = {};
+
+function preloadSound(src) {
+  return new Promise((resolve, reject) => {
+    const sound = new Audio(src);
+    sound.addEventListener('canplaythrough', () => resolve(sound), { once: true });
+    sound.addEventListener('error', reject, { once: true });
+    sound.load();
+    preloadedSounds[src] = sound;
+  });
+}
+
+function preloadAllSounds() {
+  const soundFiles = [
+    'sounds/player/walk.mp3',
+    'sounds/effect/hit.mp3',
+    'sounds/player/player-hit-long.mp3',
+    'sounds/player/player-hit-short.mp3',
+    'sounds/player/light-switch.mp3',
+    'sounds/player/light-switch-fail.mp3',
+    // ...other sound files...
+  ];
+  return Promise.all(soundFiles.map(preloadSound));
+}
+
 function playWalkSound() {
   if (!walkSound) {
     walkSound = new Audio('sounds/player/walk.mp3');
@@ -210,14 +235,20 @@ function drawInitial() {
   drawPlayer(ctx);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await preloadAllSounds();
+    console.log('모든 사운드 파일이 미리 로드되었습니다.');
+  } catch (error) {
+    console.error('사운드 파일 미리 로드 중 오류 발생:', error);
+  }
   drawInitial(); // 초기 미로와 플레이어 그리기
   const loadingScreen = document.getElementById('loading-screen');
   if (loadingScreen) loadingScreen.style.display = 'none';
 });
 
 export function playSound(src, duration = 1000, fadeOutDuration = 500, startTime = 0, volume = 1.0, interruptible = false) {
-  const sound = new Audio(src);
+  const sound = preloadedSounds[src] || new Audio(src);
   sound.volume = volume;
   sound.currentTime = startTime;
   sound.play();

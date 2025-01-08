@@ -211,10 +211,10 @@ export function drawArrowToExit(ctx) {
   ctx.drawImage(compassImage, 0, 0, compassSize, compassSize);
   ctx.restore();
 
-  // ctx.fillStyle = 'white';
-  // ctx.font = '16px Arial';
-  // ctx.textAlign = 'center';
-  // ctx.fillText(`${Math.round(distance)}`, playerX, playerY - player.size - 40);
+  ctx.fillStyle = 'white';
+  ctx.font = '16px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${Math.round(distance)}`, playerX, playerY - player.size - 40);
 }
 
 export function showPlayerStats() {

@@ -180,7 +180,7 @@ export function updateGhosts() {
     ghost.y += ghost.dy;
     handleMazeBoundaries(ghost);
 
-    if (flashlightOn && isGhostHitByRay(ghost) && isWithinEffectiveRange(ghost)) {
+    if (flashlightOn && isGhostHitByRay(ghost) && isWithinEffectiveRange(ghost) && ghost.type !== 'earthBound') {
       ghost.health -= 1;
       ghost.size += 0.1;
       if (ghost.health <= 0) handleGhostDeath(ghost, index);

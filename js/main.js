@@ -17,8 +17,8 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 export const maze = {
-  width: 50 * CELL,
-  height: 50 * CELL,
+  width: 100 * CELL,
+  height: 100 * CELL,
   cellSize: CELL,
   walls: [],
 };

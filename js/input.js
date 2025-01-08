@@ -26,7 +26,7 @@ function handleKeyDown(e) {
   if (!window.gameRunning) return;
   if (keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true;
   if (e.key.toLowerCase() === 'e') handleFlashlightToggle();
-  if (e.key.toLowerCase() === 'h') toggleDebugMode();
+  //if (e.key.toLowerCase() === 'h') toggleDebugMode();
 }
 
 function handleKeyUp(e) {

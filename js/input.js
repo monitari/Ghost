@@ -85,8 +85,14 @@ export function updateBattery() {
   }
 }
 
-/** 아이템으로 배터리를 amount 만큼 즉시 충전한다. */
+/** 아이템으로 배터리를 amount 만큼 즉시 충전한다. (누전 중 충전 불가) */
 export function rechargeBattery(amount) {
+  // 배터리 누전 디버프 확인
+  const hasBatteryDrain = player.debuffs.some(
+    debuff => debuff.type === 'batteryDrain' && Date.now() <= debuff.expiresAt
+  );
+  if (hasBatteryDrain) return;
+  
   battery.current = Math.min(battery.current + amount, battery.max);
   if (battery.current >= battery.minRechargeThreshold) {
     battery.isDepleted = false;
@@ -242,12 +248,23 @@ function handleJoystickStart(e) {
   joystickTouchId = touch.identifier;
   joystickActive = true;
 
-  const area = document.getElementById('joystick-area');
-  const rect = area.getBoundingClientRect();
-  joystickBaseX = rect.left + rect.width / 2;
-  joystickBaseY = rect.top + rect.height / 2;
+  // 플로팅 조이스틱: 터치 위치에 조이스틱 표시
+  const base = document.getElementById('joystick-base');
+  if (base) {
+    base.classList.add('active');
+    base.style.left = `${touch.clientX - 70}px`;
+    base.style.top = `${touch.clientY - 70}px`;
+  }
   
-  updateJoystickPosition(touch.clientX, touch.clientY);
+  joystickBaseX = touch.clientX;
+  joystickBaseY = touch.clientY;
+  
+  // 썸 위치 초기화
+  const thumb = document.getElementById('joystick-thumb');
+  if (thumb) {
+    thumb.style.left = '50%';
+    thumb.style.top = '50%';
+  }
 }
 
 function handleJoystickMove(e) {
@@ -272,6 +289,12 @@ function handleJoystickEnd(e) {
       keys.s = false;
       keys.a = false;
       keys.d = false;
+      
+      // 플로팅 조이스틱 숨기기
+      const base = document.getElementById('joystick-base');
+      if (base) {
+        base.classList.remove('active');
+      }
       
       // 조이스틱 썸 위치 리셋
       const thumb = document.getElementById('joystick-thumb');

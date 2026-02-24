@@ -45,10 +45,11 @@ export function initializeWallGrid() {
   
   wallGrid.clear();
   maze.walls.forEach(wall => {
-    const startGridX = Math.floor((wall.x + maze.width / 2) / maze.cellSize);
-    const startGridY = Math.floor((wall.y + maze.height / 2) / maze.cellSize);
-    const endGridX = Math.floor((wall.x + wall.width + maze.width / 2) / maze.cellSize);
-    const endGridY = Math.floor((wall.y + wall.height + maze.height / 2) / maze.cellSize);
+    // 무한 미로: 벽 좌표가 이미 월드 좌표이므로 오프셋 불필요
+    const startGridX = Math.floor(wall.x / maze.cellSize);
+    const startGridY = Math.floor(wall.y / maze.cellSize);
+    const endGridX = Math.floor((wall.x + wall.width) / maze.cellSize);
+    const endGridY = Math.floor((wall.y + wall.height) / maze.cellSize);
     
     for (let x = startGridX; x <= endGridX; x++) {
       for (let y = startGridY; y <= endGridY; y++) {
@@ -121,21 +122,20 @@ function castRayDDA(startX, startY, angle) {
   const rayDirY = Math.sin(angle);
   const endX = startX + rayDirX * flashlight.maxDistance;
   const endY = startY + rayDirY * flashlight.maxDistance;
-  const playerGridX = Math.floor((startX - mazeOffsetX + maze.width / 2) / maze.cellSize);
-  const playerGridY = Math.floor((startY - mazeOffsetY + maze.height / 2) / maze.cellSize);
+  
+  // 무한 미로: 월드 좌표를 직접 그리드 좌표로 변환
+  const worldX = startX - mazeOffsetX;
+  const worldY = startY - mazeOffsetY;
+  const playerGridX = Math.floor(worldX / maze.cellSize);
+  const playerGridY = Math.floor(worldY / maze.cellSize);
   const searchRadius = Math.ceil(flashlight.maxDistance / maze.cellSize);
-  const dirX = Math.sign(rayDirX);
-  const dirY = Math.sign(rayDirY);
-  const startSearchX = dirX >= 0 ? playerGridX : Math.max(0, playerGridX - searchRadius);
-  const endSearchX = dirX >= 0 ? Math.min(playerGridX + searchRadius, Math.floor(maze.width / maze.cellSize)) : playerGridX;
-  const startSearchY = dirY >= 0 ? playerGridY : Math.max(0, playerGridY - searchRadius);
-  const endSearchY = dirY >= 0 ? Math.min(playerGridY + searchRadius, Math.floor(maze.height / maze.cellSize)) : playerGridY;
 
   let closestHit = null;
   let minDistance = flashlight.maxDistance;
 
-  for (let gridX = startSearchX; gridX <= endSearchX; gridX++) {
-    for (let gridY = startSearchY; gridY <= endSearchY; gridY++) {
+  // 무한 미로: 제한 없이 검색 범위 순회
+  for (let gridX = playerGridX - searchRadius; gridX <= playerGridX + searchRadius; gridX++) {
+    for (let gridY = playerGridY - searchRadius; gridY <= playerGridY + searchRadius; gridY++) {
       const key = `${gridX},${gridY}`;
       const walls = wallGrid.get(key);
       

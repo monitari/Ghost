@@ -50,12 +50,32 @@ function handleGhostDeath(ghost, index) {
   ghosts.splice(index, 1);
   
   // 분열 유령: 사망 시 분열 (splitLevel < 1 이면 한 번만)
+  let didSplit = false;
   if (ghostType === 'splitter' && ghost.splitLevel < 1) {
     createSplitGhosts(ghost, 7);
     playSound('sounds/effect/split.mp3', 400, 200, 0, 0.6);
+    didSplit = true;
   }
-  // 모체·일반 유령 모두 즉시 리스폰 (개체수 유지)
-  if (ghost.splitLevel === 0 || ghost.splitLevel == null) {
+  
+  // 리스폰 로직
+  if (ghostType === 'splitter') {
+    // 분열체(splitLevel >= 1)가 죽은 경우: 같은 가족의 마지막이면 새 모체 리스폰
+    if (ghost.splitLevel >= 1) {
+      const familySurvivors = ghosts.filter(
+        g => g.type === 'splitter' && g.familyId === ghost.familyId && g.splitLevel >= 1
+      );
+      if (familySurvivors.length === 0) {
+        // 마지막 분열체 → 새 모체 리스폰
+        createGhosts(1, 'splitter');
+      }
+    }
+    // 모체(splitLevel === 0)가 분열 없이 죽은 경우 (이론상 발생 안 함)
+    else if (!didSplit) {
+      createGhosts(1, 'splitter');
+    }
+    // 분열이 일어난 모체는 리스폰하지 않음 (분열체 7마리가 대체)
+  } else {
+    // 일반 유령: 즉시 리스폰
     createGhosts(1, ghostType);
   }
   
@@ -72,6 +92,22 @@ function handleGhostDeath(ghost, index) {
   }
 }
 
+/**
+ * 분열체가 소멸할 때 호출. 같은 가족의 마지막 분열체면 새 모체 리스폰.
+ * @param {Object} ghost - 소멸하는 분열체
+ */
+function checkLastSplitterAndRespawn(ghost) {
+  if (ghost.type !== 'splitter' || ghost.splitLevel < 1) return;
+  
+  const familySurvivors = ghosts.filter(
+    g => g.type === 'splitter' && g.familyId === ghost.familyId && g.splitLevel >= 1
+  );
+  if (familySurvivors.length === 0) {
+    // 마지막 분열체 → 새 모체 리스폰
+    createGhosts(1, 'splitter');
+  }
+}
+
 // ═══════════════════════════════════════
 //  투명도 (opacity) 관리
 // ═══════════════════════════════════════
@@ -83,8 +119,14 @@ function updateGhostOpacity(ghost) {
     if (ghost.opacity <= 0) {
       ghost.opacity = 0;
       ghost.fading = false;
-      relocateGhost(ghost);
-      ghost.appearing = true;
+      
+      // 분열된 개체(splitLevel >= 1)는 리스폰하지 않고 소멸
+      if (ghost.splitLevel >= 1) {
+        ghost.shouldRemove = true;
+      } else {
+        relocateGhost(ghost);
+        ghost.appearing = true;
+      }
     }
   } else if (ghost.appearing) {
     ghost.opacity = Math.min(ghost.opacity + 0.05, 1);
@@ -361,6 +403,24 @@ export function updateGhosts() {
       if (ghost.health <= 0) handleGhostDeath(ghost, index);
     }
     updateGhostOpacity(ghost);
+    
+    // 분열된 개체 소멸 처리
+    if (ghost.shouldRemove) {
+      createParticleEffect(ghost.x, ghost.y, ghost.r, ghost.g, ghost.b);
+      const familyId = ghost.familyId;
+      const splitLevel = ghost.splitLevel;
+      ghosts.splice(index, 1);
+      // 마지막 분열체면 새 모체 리스폰
+      if (splitLevel >= 1) {
+        const familySurvivors = ghosts.filter(
+          g => g.type === 'splitter' && g.familyId === familyId && g.splitLevel >= 1
+        );
+        if (familySurvivors.length === 0) {
+          createGhosts(1, 'splitter');
+        }
+      }
+      continue;
+    }
 
     // ── 타입별 AI 처리 ──
     if (ghost.type === 'follower')     handleFollowerMovement(ghost);
@@ -385,7 +445,18 @@ export function updateGhosts() {
           if (!ghost.fading) {
             createParticleEffect(ghost.x, ghost.y, ghost.r, ghost.g, ghost.b);
           }
+          const familyId = ghost.familyId;
+          const splitLevel = ghost.splitLevel;
           ghosts.splice(index, 1);
+          // 마지막 분열체면 새 모체 리스폰
+          if (splitLevel >= 1) {
+            const familySurvivors = ghosts.filter(
+              g => g.type === 'splitter' && g.familyId === familyId && g.splitLevel >= 1
+            );
+            if (familySurvivors.length === 0) {
+              createGhosts(1, 'splitter');
+            }
+          }
         } else {
           // 수명이 끝나갈수록 투명해짐
           ghost.opacity = Math.max(0.1, 1 - (elapsed / ghost.lifespan));

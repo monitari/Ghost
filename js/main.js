@@ -187,9 +187,9 @@ function checkCollisionOptimized(x, y, player) {
     });
   }
   
-  // 그리드 좌표 계산
-  const gridX = Math.floor((x + maze.width / 2) / maze.cellSize);
-  const gridY = Math.floor((y + maze.height / 2) / maze.cellSize);
+  // 그리드 좌표 계산 (무한 미로: 월드 좌표 직접 사용)
+  const gridX = Math.floor(x / maze.cellSize);
+  const gridY = Math.floor(y / maze.cellSize);
   
   // 주변 셀 검사 (3x3)
   for (let dx = -1; dx <= 1; dx++) {
@@ -217,26 +217,58 @@ function checkCollisionOptimized(x, y, player) {
 //  게임 초기화 & 생존 종료
 // ═══════════════════════════════════════
 
-/** 유령·아이템 초기화 후 10초마다 유령을 추가 스폰한다. */
+/** 유령·아이템 초기화 후 점점 빨라지는 속도로 유령을 추가 스폰한다. */
 function initializeGame() {
   ghosts.length = 0;
   items.length  = 0;
   player.x = 0;
   player.y = 0;
   setMazeOffset(canvas.width / 2, canvas.height / 2);
-  createGhosts(100);      // 초기 유령 200체 (×2)
+  createGhosts(100);      // 초기 유령 100체
   spawnBatteryItems(6);   // 초기 필드 배터리
   scheduleItemSpawn();    // 주기적 배터리 스폰
 
-  // 10초마다 10체씩 추가 (ghostCount 도달 시 중단)
-  const spawnInterval = setInterval(() => {
-    if (ghosts.length >= ghostCount) {
-      clearInterval(spawnInterval);
-      return;
-    }
-    createGhosts(10);
-  }, 10000);
+  // 동적 스폰: 처음에는 느리게, 점점 빨라짐 (지수함수)
+  // 90% 시점까지 기본 곡선, 이후 극한 스폰
+  const SPAWN_THRESHOLD_TIME = GAME_TIME_LIMIT * 0.9;  // 90% 시점
+  const INITIAL_INTERVAL = 15000;  // 초기 간격: 15초
+  const MIN_INTERVAL = 2000;       // 기본 최소 간격: 2초
+  const FINAL_INTERVAL = 500;      // 90% 이후 최소 간격: 0.5초
+  const BASE_SPAWN_AMOUNT = 10;    // 기본 스폰량: 10체
+  const MAX_SPAWN_AMOUNT = 30;     // 90% 이후 최대 스폰량: 30체
 
+  function scheduleNextSpawn() {
+    if (ghosts.length >= ghostCount) return;
+    if (!isGameRunning()) return;
+
+    const elapsedSeconds = (Date.now() - gameState.startTime) / 1000;
+    
+    let currentInterval, spawnAmount;
+    
+    if (elapsedSeconds < SPAWN_THRESHOLD_TIME) {
+      // 0~90%: 지수함수로 간격 감소
+      const progress = elapsedSeconds / SPAWN_THRESHOLD_TIME;  // 0 → 1
+      const exponentialFactor = 1 - Math.pow(progress, 3);
+      currentInterval = MIN_INTERVAL + (INITIAL_INTERVAL - MIN_INTERVAL) * exponentialFactor;
+      spawnAmount = BASE_SPAWN_AMOUNT;
+    } else {
+      // 90% 이후: 극한 스폰 (간격 최소화 + 스폰량 증가)
+      const overProgress = (elapsedSeconds - SPAWN_THRESHOLD_TIME) / (GAME_TIME_LIMIT - SPAWN_THRESHOLD_TIME);
+      currentInterval = Math.max(FINAL_INTERVAL, MIN_INTERVAL * (1 - overProgress));
+      spawnAmount = Math.min(MAX_SPAWN_AMOUNT, BASE_SPAWN_AMOUNT + Math.floor(overProgress * (MAX_SPAWN_AMOUNT - BASE_SPAWN_AMOUNT)));
+    }
+
+    setTimeout(() => {
+      if (!isGameRunning()) return;
+      if (ghosts.length < ghostCount) {
+        const actualSpawn = Math.min(spawnAmount, ghostCount - ghosts.length);
+        createGhosts(actualSpawn);
+      }
+      scheduleNextSpawn();
+    }, currentInterval);
+  }
+
+  scheduleNextSpawn();
   update();
 }
 

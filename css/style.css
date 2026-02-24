@@ -566,10 +566,10 @@ body.is-mobile #mobile-controls {
 
 #joystick-area {
   position: absolute;
-  bottom: 30px;
-  left: 30px;
-  width: 140px;
-  height: 140px;
+  bottom: 0;
+  left: 0;
+  width: 50vw;
+  height: 60vh;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
@@ -581,6 +581,12 @@ body.is-mobile #mobile-controls {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
   border: 2px solid rgba(255, 255, 255, 0.15);
+  display: none;
+  pointer-events: none;
+}
+
+#joystick-base.active {
+  display: block;
 }
 
 #joystick-thumb {
@@ -789,10 +795,12 @@ body.is-mobile #mobile-controls {
     font-size: 9px;
   }
 
-  /* --- 조이스틱 safe-area --- */
+  /* --- 조이스틱 safe-area (플로팅 영역) --- */
   #joystick-area {
-    bottom: max(28px, env(safe-area-inset-bottom, 28px));
-    left: max(24px, env(safe-area-inset-left, 24px));
+    bottom: 0;
+    left: 0;
+    width: 50vw;
+    height: 60vh;
   }
 
   /* --- 모바일 버튼 safe-area --- */
@@ -824,10 +832,10 @@ body.is-mobile #mobile-controls {
 /* ===== 작은 화면 (≤480px 세로 모드) ===== */
 @media (max-width: 480px) {
   #joystick-area {
-    bottom: max(18px, env(safe-area-inset-bottom, 18px));
-    left: max(14px, env(safe-area-inset-left, 14px));
-    width: 120px;
-    height: 120px;
+    bottom: 0;
+    left: 0;
+    width: 50vw;
+    height: 55vh;
   }
 
   #joystick-base {
@@ -906,12 +914,12 @@ body.is-mobile #mobile-controls {
 
 /* ===== 가로 모드 (≤500px 높이 + landscape) ===== */
 @media (max-height: 500px) and (orientation: landscape) {
-  /* 조이스틱: 좌하단 컴팩트 */
+  /* 조이스틱: 좌하단 플로팅 영역 */
   #joystick-area {
-    bottom: max(8px, env(safe-area-inset-bottom, 8px));
-    left: max(12px, env(safe-area-inset-left, 12px));
-    width: 100px;
-    height: 100px;
+    bottom: 0;
+    left: 0;
+    width: 40vw;
+    height: 80vh;
   }
 
   #joystick-base {

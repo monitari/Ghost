@@ -1,283 +1,294 @@
+/**
+ * main.js — 게임 루프 · 초기화 · 충돌 · 생존 종료
+ *
+ * requestAnimationFrame 기반 게임 루프(update)를 실행하고,
+ * 플레이어 이동 · 충돌 · 디버프 · 배터리 · 렌더링을 오케스트레이션한다.
+ */
+
 import { generateMaze, drawMaze } from './maze.js';
 import { player, initializePlayer, drawPlayer, checkPlayerGhostCollision } from './player.js';
-import { flashlight, drawFlashlight, initializeWallGrid } from './flashlight.js';
+import { flashlight, drawFlashlight, initializeWallGrid, drawVisionMask, getWallGrid } from './flashlight.js';
 import { ghosts, createGhosts, ghostCount, CELL } from './createGhosts.js';
 import { updateGhosts, drawVisibleGhosts } from './updateGhosts.js';
-import { keys, initializeInput, flashlightOn, debugMode, flashlightDisabledUntil, setFlashlightOn, flashlightWasOnBeforeDisable } from './input.js';
-import { stats, loadStatsFromCookies, setCurrentNickname, updateGhostCountDisplay, updateGameTimer, updateDebuffDisplay, drawArrowToExit, showGameClearScreen, setGameStartTime, saveStatsToCookies } from './uistats.js';
+import { keys, initializeInput, flashlightOn, debugMode, setFlashlightOn, flashlightWasOnBeforeDisable, getJoystickValues, isMobile, updateBattery, battery, rechargeBattery } from './input.js';
+import { stats, loadStatsFromCookies, setCurrentNickname, updateGhostCountDisplay, updateGameTimer, updateDebuffDisplay, showGameClearScreen, saveStatsToCookies, updateBatteryDisplay, showSurvivalEndScreen } from './uistats.js';
+import { items, updateItems, drawItems, spawnBatteryItems, scheduleItemSpawn } from './items.js';
+import { playWalkSound, stopWalkSound, preloadAllSounds } from './audio.js';
+import { canvas, ctx, maze, mazeOffsetX, mazeOffsetY, setMazeOffset, GAME_TIME_LIMIT, setupCanvasResize } from './config.js';
+import { gameState, setGameRunning, isGameRunning, setGameStartTime, updateDeltaTime, getDeltaTime, setNickname } from './gameState.js';
 
-console.log('main.js 로드됨');
+// re-export (HTML 인라인 스크립트용)
+export { canvas, maze, mazeOffsetX, mazeOffsetY, GAME_TIME_LIMIT, CELL };
 
-let walkSound = null;
-let currentNickname = ''; // 현재 플레이어 닉네임
+// ═══════════════════════════════════════
+//  내부 상태 & 초기화
+// ═══════════════════════════════════════
 
-export const canvas = document.getElementById("game-canvas");
-const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-export const maze = {
-  width: 100 * CELL,
-  height: 100 * CELL,
-  cellSize: CELL,
-  walls: [],
-};
-
-let gameRunning = false; // 게임 시작 전에는 false
-window.gameRunning = gameRunning; // 전역 변수로 설정
+/** 피격 플래시 효과 */
 let flashColor = null;
-let flashTime = 0;
+let flashTime  = 0;
 
-export let mazeOffsetX = canvas.width / 2;
-export let mazeOffsetY = canvas.height / 2;
+// 캔버스 리사이즈 시 레이캐시 초기화
+setupCanvasResize(() => {
+  if (flashlight) flashlight.rayCache.clear();
+});
 
-const preloadedSounds = {};
-
-function preloadSound(src) {
-  return new Promise((resolve, reject) => {
-    const sound = new Audio(src);
-    sound.addEventListener('canplaythrough', () => resolve(sound), { once: true });
-    sound.addEventListener('error', reject, { once: true });
-    sound.load();
-    preloadedSounds[src] = sound;
-  });
-}
-
-function preloadAllSounds() {
-  const soundFiles = [
-    'sounds/player/walk.mp3',
-    'sounds/effect/hit.mp3',
-    'sounds/player/player-hit-long.mp3',
-    'sounds/player/player-hit-short.mp3',
-    'sounds/player/light-switch.mp3',
-    'sounds/player/light-switch-fail.mp3',
-    // ...other sound files...
-  ];
-  return Promise.all(soundFiles.map(preloadSound));
-}
-
-function playWalkSound() {
-  if (!walkSound) {
-    walkSound = new Audio('sounds/player/walk.mp3');
-    walkSound.loop = true;
-  }
-  if (walkSound.paused) {
-    walkSound.play().catch(error => {
-      if (error.name !== 'AbortError') console.error('walkSound.play() 오류:', error);
-    });
-  }
-}
-
-function stopWalkSound() {
-  if (walkSound && !walkSound.paused) {
-    walkSound.pause();
-    walkSound.currentTime = 0;
-  }
-}
-
+/** 닉네임을 설정하고 게임을 시작한다. */
 export function startGame(nickname) {
-  currentNickname = nickname;
+  setNickname(nickname);
   setCurrentNickname(nickname);
-  console.log(`게임을 시작합니다, ${nickname}!`);
   loadStatsFromCookies(nickname);
-  gameRunning = true;
-  window.gameRunning = gameRunning;
-  setGameStartTime(Date.now()); // 게임 시작 시간 설정
+  setGameRunning(true);
+  setGameStartTime(Date.now());
   initializeGame();
 }
 
-initializePlayer();
-initializeInput(canvas);
+// 로딩 화면 failsafe: 10초 후 강제 숨김
+setTimeout(() => {
+  const ls = document.getElementById('loading-screen');
+  if (ls && ls.style.display !== 'none') {
+    ls.style.opacity = '0';
+    setTimeout(() => { ls.style.display = 'none'; }, 300);
+  }
+}, 10000);
+
+try {
+  initializePlayer();
+} catch (error) {
+  console.error('플레이어 초기화 중 오류:', error);
+}
+
+try {
+  initializeInput();
+} catch (error) {
+  console.error('입력 초기화 중 오류:', error);
+}
+
+// ═══════════════════════════════════════
+//  게임 루프
+// ═══════════════════════════════════════
 
 function update() {
-  if (!gameRunning) {
-    console.log('게임이 실행 중이 아님. 업데이트 중지');
-    return;
-  }
+  if (!isGameRunning()) return;
+
+  const deltaTime = updateDeltaTime();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // 플레이어 이동 (미로 이동)
-  let dx = 0;
-  let dy = 0;
-  if (!player.debuffs.some(debuff => debuff.type === 'immobilized')) {
-    if (keys.w) dy = 2;
-    if (keys.s) dy = -2;
-    if (keys.a) dx = 2;
-    if (keys.d) dx = -2;
-  } else {
-    dx = 0;
-    dy = 0;
+  // ── 플레이어 이동 ──
+  let dx = 0, dy = 0;
+  const moveSpeed = 2 * deltaTime * 60;    // 60fps 기준 속도
+  
+  // [디버프] 혼란: 방향 반전
+  const isConfused = player.debuffs.some(d => d.type === 'confusion');
+  const dirMul     = isConfused ? -1 : 1;
+
+  if (!player.debuffs.some(d => d.type === 'immobilized')) {
+    if (isMobile()) {
+      const joystick = getJoystickValues();
+      dx = -joystick.dx * moveSpeed * dirMul;
+      dy = -joystick.dy * moveSpeed * dirMul;
+    } else {
+      if (keys.w) dy =  moveSpeed * dirMul;
+      if (keys.s) dy = -moveSpeed * dirMul;
+      if (keys.a) dx =  moveSpeed * dirMul;
+      if (keys.d) dx = -moveSpeed * dirMul;
+    }
   }
 
-  if (dx !== 0 || dy !== 0) playWalkSound();
-  else stopWalkSound();
+  if (dx !== 0 || dy !== 0) playWalkSound(); else stopWalkSound();
+  player.isMoving = (dx !== 0 || dy !== 0);  // 환영 유령용
 
-  const nextX = -mazeOffsetX + canvas.width / 2 - dx;
-  const nextY = -mazeOffsetY + canvas.height / 2 - dy;
+  // ── 충돌 & 오프셋 갱신 ──
+  let currentOffsetX = mazeOffsetX;
+  let currentOffsetY = mazeOffsetY;
+  
+  const nextX = -currentOffsetX + canvas.width  / 2 - dx;
+  const nextY = -currentOffsetY + canvas.height / 2 - dy;
 
-  if (!checkCollision(nextX, nextY, player, maze)) {
-    mazeOffsetX += dx;
-    mazeOffsetY += dy;
+  if (!checkCollisionOptimized(nextX, nextY, player)) {
+    currentOffsetX += dx;
+    currentOffsetY += dy;
+    setMazeOffset(currentOffsetX, currentOffsetY);
     flashlight.rayCache.clear();
   }
 
-  player.x = -mazeOffsetX + canvas.width / 2;
-  player.y = -mazeOffsetY + canvas.height / 2;
+  player.x = -currentOffsetX + canvas.width  / 2;
+  player.y = -currentOffsetY + canvas.height / 2;
 
+  // ── 유령 & 아이템 업데이트 ──
   updateGhosts();
-  drawMaze(ctx);
-  
-  // 플레이어와 출구 간 거리 계산
-  let distanceToExit = Infinity;
-  if (maze.exit) {
-    const dx = player.x - (maze.exit.x + maze.cellSize / 2);
-    const dy = player.y - (maze.exit.y + maze.cellSize / 2);
-    distanceToExit = Math.sqrt(dx * dx + dy * dy);
-  }
+  updateItems();
 
+  // ── 렌더링 ──
+  drawMaze(ctx);
   if (flashlightOn) drawFlashlight(ctx);
-  if (!debugMode && !flashlightOn && distanceToExit >= maze.cellSize) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-  
+  if (!debugMode && !flashlightOn) drawVisionMask(ctx);
   drawPlayer(ctx);
-  drawVisibleGhosts(ctx, mazeOffsetX, mazeOffsetY);
+  drawItems(ctx, currentOffsetX, currentOffsetY);
+  drawVisibleGhosts(ctx, currentOffsetX, currentOffsetY);
+
+  // 피격 플래시
   const collisionResult = checkPlayerGhostCollision(flashColor, flashTime);
   flashColor = collisionResult.flashColor;
-  flashTime = collisionResult.flashTime;
-  drawArrowToExit(ctx);
+  flashTime  = collisionResult.flashTime;
 
-  // 미로 출구에 도달했는지 체크
-  if (maze.exit) {
-    const exitX = maze.exit.x;
-    const exitY = maze.exit.y;
-    const exitSize = maze.cellSize;
-    const margin = 20; // 좁아진 경계의 마진
-
-    if (
-      player.x + player.size >= exitX + margin &&
-      player.x - player.size <= exitX + exitSize - margin &&
-      player.y + player.size >= exitY + margin &&
-      player.y - player.size <= exitY + exitSize - margin
-    ) {
-      stats.clears++;
-      showGameClearScreen();
-      gameRunning = false;
-      saveStatsToCookies(); // 클리어 횟수 저장
-      return;
-    }
+  // ── 시간 제한 체크 (생존 모드) ──
+  const elapsedSeconds = Math.floor((Date.now() - gameState.startTime) / 1000);
+  if (elapsedSeconds >= GAME_TIME_LIMIT) {
+    endSurvivalGame();
+    return;
   }
 
-  // 디버프 상태 업데이트 및 전등 자동 조절
-  player.debuffs.forEach(debuff => {
+  // ── 디버프 만료 체크 ──
+  player.debuffs = player.debuffs.filter(debuff => {
     if (Date.now() > debuff.expiresAt) {
-      player.removeDebuff(debuff.type);
-      if (debuff.type === 'flashlightDisabled') setFlashlightOn(flashlightWasOnBeforeDisable); // 이전 상태로 복원
+      if (debuff.type === 'flashlightDisabled') setFlashlightOn(flashlightWasOnBeforeDisable);
+      return false;
     }
+    return true;
   });
 
-  updateDebuffDisplay(); // 디버프 표시 업데이트
-  updateGhostCountDisplay(); // 유령 개체수 표시 업데이트
-  updateGameTimer(); // 게임 타이머 업데이트
+  // ── 배터리 & UI 갱신 ──
+  updateBattery();
 
+  updateDebuffDisplay();
+  updateGhostCountDisplay();
+  updateGameTimer();
+  updateBatteryDisplay();
+
+  // 피격 플래시 오버레이
   if (flashTime > 0) {
-    ctx.fillStyle = flashColor.replace('0.7', (flashTime / 30).toString());
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (flashColor) {
+      ctx.fillStyle = `rgba(${flashColor.r}, ${flashColor.g}, ${flashColor.b}, ${flashTime / 30})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     flashTime--;
   }
 
-  // 전등 자동 재활성화
-  if (!flashlightOn && Date.now() > flashlightDisabledUntil && player.debuffs.length === 0) {
-    setFlashlightOn(flashlightWasOnBeforeDisable); // 이전 상태에 따라 전등 켜기
+  if (isGameRunning()) requestAnimationFrame(update);
+}
+
+// ═══════════════════════════════════════
+//  충돌 검사 (공간 해싱 최적화)
+// ═══════════════════════════════════════
+
+/** wallGrid 기반 3×3 셀 충돌 검사. 그리드 없으면 폴백(전체 벽 순회). */
+function checkCollisionOptimized(x, y, player) {
+  const wallGrid = getWallGrid();
+  if (!wallGrid || wallGrid.size === 0) {
+    // 폴백: 전체 벽 검사
+    return maze.walls.some((wall) => {
+      return (
+        x > wall.x - player.colliderSize &&
+        x < wall.x + wall.width + player.colliderSize &&
+        y > wall.y - player.colliderSize &&
+        y < wall.y + wall.height + player.colliderSize
+      );
+    });
   }
-
-  if (gameRunning) requestAnimationFrame(update); // setTimeout 제거
+  
+  // 그리드 좌표 계산
+  const gridX = Math.floor((x + maze.width / 2) / maze.cellSize);
+  const gridY = Math.floor((y + maze.height / 2) / maze.cellSize);
+  
+  // 주변 셀 검사 (3x3)
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const key = `${gridX + dx},${gridY + dy}`;
+      const walls = wallGrid.get(key);
+      if (walls) {
+        for (const wall of walls) {
+          if (
+            x > wall.x - player.colliderSize &&
+            x < wall.x + wall.width + player.colliderSize &&
+            y > wall.y - player.colliderSize &&
+            y < wall.y + wall.height + player.colliderSize
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
 }
 
-function checkCollision(x, y, player, maze) {
-  return maze.walls.some((wall) => {
-    return (
-      x > wall.x - player.colliderSize &&
-      x < wall.x + wall.width + player.colliderSize &&
-      y > wall.y - player.colliderSize &&
-      y < wall.y + wall.height + player.colliderSize
-    );
-  });
-}
+// ═══════════════════════════════════════
+//  게임 초기화 & 생존 종료
+// ═══════════════════════════════════════
 
+/** 유령·아이템 초기화 후 10초마다 유령을 추가 스폰한다. */
 function initializeGame() {
-  ghosts.length = 0; // 게임 시작 시 유령 배열 초기화
+  ghosts.length = 0;
+  items.length  = 0;
   player.x = 0;
   player.y = 0;
-  mazeOffsetX = canvas.width / 2;
-  mazeOffsetY = canvas.height / 2;
-  createGhosts(100); // 유령 100마리 생성
-  console.log('초기 유령 100마리 생성');
+  setMazeOffset(canvas.width / 2, canvas.height / 2);
+  createGhosts(100);      // 초기 유령 200체 (×2)
+  spawnBatteryItems(6);   // 초기 필드 배터리
+  scheduleItemSpawn();    // 주기적 배터리 스폰
 
+  // 10초마다 10체씩 추가 (ghostCount 도달 시 중단)
   const spawnInterval = setInterval(() => {
     if (ghosts.length >= ghostCount) {
       clearInterval(spawnInterval);
       return;
     }
-    createGhosts(5);
-    console.log('유령 5마리 생성');
-  }, 10000); // 20초마다 유령 5마리 생성
+    createGhosts(10);
+  }, 10000);
 
   update();
 }
 
+/** 생존 모드 종료 — 점수 계산 후 결과 화면을 표시한다. */
+function endSurvivalGame() {
+  setGameRunning(false);
+  stopWalkSound();
+  
+  const totalHits  = Object.values(stats.hits).reduce((a, b) => a + b, 0);
+  const totalKills  = Object.values(stats.kills).reduce((a, b) => a + b, 0);
+  const score       = totalKills * 10 - totalHits * 50;  // 처치 ×10 − 피격 ×50
+  
+  stats.clears++;  // 생존 완료 카운트
+  saveStatsToCookies();
+  showSurvivalEndScreen(totalHits, totalKills, score);
+}
+
+// ═══════════════════════════════════════
+//  DOMContentLoaded — 사운드 프리로드 & 초기 렌더
+// ═══════════════════════════════════════
+
+/** 사운드 프리로드 후 미로 초기 렌더를 수행한다. */
 function drawInitial() {
-  generateMaze(1, 1, 3); // 미로 생성
-  initializeWallGrid();   // 벽 그리드 초기화
+  generateMaze(1, 1, 3);
+  initializeWallGrid();
   drawMaze(ctx, flashlightOn);
-  drawFlashlight(ctx);    // 전등 그리기 추가
+  drawFlashlight(ctx);
   drawPlayer(ctx);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  try {
-    await preloadAllSounds();
-    console.log('모든 사운드 파일이 미리 로드되었습니다.');
-  } catch (error) {
-    console.error('사운드 파일 미리 로드 중 오류 발생:', error);
-  }
-  drawInitial(); // 초기 미로와 플레이어 그리기
   const loadingScreen = document.getElementById('loading-screen');
-  if (loadingScreen) loadingScreen.style.display = 'none';
-});
-
-export function playSound(src, duration = 1000, fadeOutDuration = 500, startTime = 0, volume = 1.0, interruptible = false) {
-  const sound = preloadedSounds[src] || new Audio(src);
-  sound.volume = volume;
-  sound.currentTime = startTime;
-  sound.play();
-
-  if (interruptible) {
-    setTimeout(() => {
-      const fadeOutStep = sound.volume / (fadeOutDuration / 50);
-      const fadeOut = setInterval(() => {
-        if (sound.volume > fadeOutStep) {
-          sound.volume -= fadeOutStep;
-        } else {
-          sound.volume = 0;
-          sound.pause();
-          clearInterval(fadeOut);
-        }
-      }, 50);
-    }, duration + fadeOutDuration);
-  } else {
-    setTimeout(() => {
-      const fadeOutStep = sound.volume / (fadeOutDuration / 50);
-      const fadeOut = setInterval(() => {
-        if (sound.volume > fadeOutStep) {
-          sound.volume -= fadeOutStep;
-        } else {
-          sound.volume = 0;
-          sound.pause();
-          clearInterval(fadeOut);
-        }
-      }, 50);
-    }, duration + fadeOutDuration);
+  
+  try {
+    const loadPromise = preloadAllSounds();
+    const timeoutPromise = new Promise(resolve => setTimeout(resolve, 5000));
+    await Promise.race([loadPromise, timeoutPromise]);
+  } catch (error) {
+    // 사운드 로드 실패 - 무시하고 계속
   }
-}
+  
+  try {
+    drawInitial();
+  } catch (error) {
+    console.error('미로 초기화 중 오류:', error);
+  }
+  
+  // 로딩 화면 숨기기
+  if (loadingScreen) {
+    loadingScreen.style.opacity = '0';
+    setTimeout(() => {
+      loadingScreen.style.display = 'none';
+    }, 300);
+  }
+});

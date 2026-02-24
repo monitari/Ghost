@@ -1,117 +1,817 @@
+/**
+ * style.css — Ghost Game UI 스타일
+ *
+ * 섹션: 기본 리셋 → 오버레이 → 통계 패널 → 로딩
+ *        → 디버프 → HUD → 배터리 → 게임 정보 → 모바일
+ *        → 스크롤바 → 반응형 (@media)
+ */
+
+/* ===== 기본 리셋 ===== */
 body {
   margin: 0;
   overflow: hidden;
   background: black;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  touch-action: none; /* 모바일 기본 제스처 비활성화 */
+  -webkit-user-select: none;
+  user-select: none;
 }
+
+* {
+  box-sizing: border-box;
+}
+
 canvas {
   position: absolute;
   top: 0;
   left: 0;
   display: block;
 }
+
+/* ===== 오버레이 (시작 화면) ===== */
 #overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.85) 0%, rgba(20, 20, 40, 0.95) 100%);
   display: flex;
   justify-content: center;
   align-items: center;
   flex-direction: column;
   color: white;
-  font-family: Arial, sans-serif;
+  gap: 15px;
+  padding: 20px;
+  z-index: 100;
 }
+
 #nickname-input {
-  padding: 10px;
-  font-size: 16px;
-  margin-bottom: 10px;
+  padding: 12px 20px;
+  font-size: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  outline: none;
+  transition: all 0.3s ease;
+  width: min(250px, 80vw);
+  text-align: center;
 }
+
+#nickname-input:focus {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.1);
+  box-shadow: 0 0 20px rgba(74, 158, 255, 0.3);
+}
+
+#nickname-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 #start-button {
-  padding: 10px 20px;
-  font-size: 16px;
+  padding: 12px 40px;
+  font-size: 18px;
+  font-weight: bold;
   cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #4a9eff 0%, #2d7dd2 100%);
+  color: white;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(74, 158, 255, 0.4);
+  min-height: 44px; /* 모바일 터치 최소 크기 */
 }
-/* 플레이어 통계 스타일 추가 */
+
+#start-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(74, 158, 255, 0.6);
+}
+
+#start-button:active {
+  transform: translateY(0);
+}
+
+#delete-stats-button {
+  padding: 8px 16px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 100, 100, 0.5);
+  border-radius: 6px;
+  background: rgba(255, 50, 50, 0.2);
+  color: rgba(255, 150, 150, 0.8);
+  transition: all 0.3s ease;
+  min-height: 36px;
+}
+
+#delete-stats-button:hover {
+  background: rgba(255, 50, 50, 0.4);
+  color: white;
+}
+
+/* ===== 플레이어 통계 패널 ===== */
 #player-stats {
   position: absolute;
   top: 10px;
   right: 10px;
-  max-width: 300px;
-  max-height: 200px;
-  overflow: auto;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 10px;
-  border-radius: 8px;
+  max-width: 280px;
+  max-height: 45vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: white;
-  font-family: Arial, sans-serif;
-  font-size: 14px;
-}
-#player-stats h3 {
-  margin-top: 0;
-  margin-bottom: 0;
+  font-size: 13px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
-/* 로딩 화면 스타일 추가 */
+#player-stats.collapsed {
+  max-height: 40px;
+  overflow: hidden;
+}
+
+#player-stats .stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#player-stats .stats-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #4a9eff;
+}
+
+#player-stats .stats-toggle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  transition: transform 0.3s ease;
+}
+
+#player-stats.collapsed .stats-toggle {
+  transform: rotate(180deg);
+}
+
+#player-stats .stats-content {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+#player-stats.collapsed .stats-content {
+  display: none;
+}
+
+#player-stats .stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#player-stats .stat-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+#player-stats .stat-value {
+  color: #fff;
+  font-weight: bold;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+#player-stats .stat-category {
+  color: #4a9eff;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(74, 158, 255, 0.3);
+}
+
+#player-stats .stat-highlight {
+  color: #ffd700;
+  font-size: 15px;
+}
+
+/* --- 요약 카드 그리드 --- */
+#player-stats .stat-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 6px;
+}
+#player-stats .stat-card {
+  text-align: center;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 6px 2px;
+}
+#player-stats .stat-card-value {
+  font-size: 18px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+#player-stats .stat-card-label {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* --- 유령별 상세 테이블 --- */
+#player-stats .stat-ghost-header {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px;
+  gap: 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 2px 0;
+}
+#player-stats .sgh-name { text-align: left; }
+#player-stats .sgh-col  { text-align: center; }
+
+#player-stats .stat-ghost-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px;
+  gap: 4px;
+  align-items: center;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+#player-stats .sgr-name {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+#player-stats .sgr-icon { font-size: 11px; }
+#player-stats .sgr-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+#player-stats .sgr-num {
+  font-size: 12px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 미니 비율 바 --- */
+#player-stats .stat-mini-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+#player-stats .stat-mini-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* --- 디버프 상세 행 --- */
+#player-stats .stat-debuff-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+#player-stats .sdr-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+#player-stats .sdr-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 50px;
+}
+#player-stats .sdr-num {
+  font-size: 12px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== 로딩 화면 ===== */
 #loading-screen {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.9);
+  background: linear-gradient(135deg, #0a0a15 0%, #1a1a2e 100%);
   color: white;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  font-size: 2em;
+  font-size: 1.5em;
   z-index: 1000;
+  transition: opacity 0.3s ease;
 }
 
-/* 디버프 표시 스타일 추가 */
+#loading-screen h1 {
+  margin-bottom: 30px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-left-color: #4a9eff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== 디버프 표시 ===== */
 #debuff-display {
   position: absolute;
-  top: 10px;
+  top: 8px;
   left: 10px;
   color: white;
-  font-family: Arial, sans-serif;
-  font-size: 16px;
-}
-.debuff {
-  margin-bottom: 5px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 40;
+  max-width: 200px;
 }
 
-/* 유령 개체수 표시 스타일 추가 */
-#ghost-count-display {
+.debuff {
+  background: rgba(255, 50, 50, 0.35);
+  border: 1px solid rgba(255, 100, 100, 0.5);
+  border-radius: 6px;
+  padding: 5px 10px;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  animation: debuffPulse 1s ease-in-out infinite;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+@keyframes debuffPulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+/* ===== HUD 상단 정보 바 ===== */
+#hud-top-bar {
   position: absolute;
-  top: 10px;
+  top: 8px;
   left: 50%;
   transform: translateX(-50%);
-  color: white;
-  font-family: Arial, sans-serif;
-  font-size: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 40;
+  pointer-events: none;
 }
 
-/* 게임 타이머 표시 스타일 추가 */
+#ghost-count-display {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 14px;
+  border-radius: 16px;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  white-space: nowrap;
+}
+
 #game-timer {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%) translateY(20px);
-  color: white;
-  font-family: Arial, sans-serif;
-  font-size: 16px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 18px;
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 18px;
+  border-radius: 16px;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-/* 화살표와 거리 텍스트 스타일 추가 */
+/* ===== 배터리 표시 ===== */
+#battery-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 12px;
+  border-radius: 16px;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  transition: box-shadow 0.4s ease;
+}
+
+#battery-display.battery-low {
+  box-shadow: 0 0 8px rgba(255, 68, 68, 0.5);
+}
+
+#battery-display .battery-icon {
+  font-size: 14px;
+  transition: transform 0.3s ease;
+}
+
+#battery-display.battery-low .battery-icon {
+  animation: batteryIconShake 0.6s ease-in-out infinite;
+}
+
+#battery-display .battery-bar {
+  width: 56px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  position: relative;
+}
+
+#battery-display .battery-fill {
+  height: 100%;
+  width: 100%;
+  background-color: #44ff44;
+  border-radius: 6px;
+  transition: width 0.4s ease, background-color 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 충전 중: 스트라이프 애니메이션 */
+#battery-display .battery-fill.charging {
+  animation: none;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 4px,
+    rgba(255, 255, 255, 0.15) 4px,
+    rgba(255, 255, 255, 0.15) 8px
+  );
+  background-size: 200% 100%;
+  animation: batteryStripe 0.8s linear infinite;
+}
+
+/* 낮은 배터리: 깜빡임 */
+#battery-display .battery-fill.battery-critical {
+  animation: batteryCriticalPulse 0.5s ease-in-out infinite;
+}
+
+/* 킬 충전: 밝은 플래시 */
+#battery-display .battery-fill.battery-flash {
+  transition: none;
+  box-shadow: 0 0 10px rgba(68, 255, 68, 0.8);
+}
+
+#battery-display .battery-text {
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s ease;
+}
+
+@keyframes batteryStripe {
+  0% { background-position: 0 0; }
+  100% { background-position: 16px 0; }
+}
+
+@keyframes batteryCriticalPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes batteryIconShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1px); }
+  75% { transform: translateX(1px); }
+}
+
+@keyframes batteryPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ===== 게임 정보 ===== */
+#game-info {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  color: rgba(255, 255, 255, 0.15);
+  font-size: 11px;
+  line-height: 1.4;
+  z-index: 30;
+}
+
+/* ===== 화살표와 거리 텍스트 ===== */
 #arrow-to-exit {
   position: absolute;
-  top: 50px;
+  top: 80px;
   left: 50%;
   transform: translateX(-50%);
   color: yellow;
-  font-family: Arial, sans-serif;
   font-size: 16px;
   text-align: center;
+}
+
+/* ===== 모바일 컨트롤 ===== */
+#mobile-controls {
+  display: none;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 60;
+}
+
+#joystick-area {
+  position: absolute;
+  bottom: 30px;
+  left: 30px;
+  width: 140px;
+  height: 140px;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#joystick-base {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+#joystick-thumb {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.15) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: none;
+}
+
+#mobile-buttons {
+  position: absolute;
+  bottom: 30px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.mobile-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  font-size: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, transform 0.1s ease;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.mobile-btn:active, .mobile-btn.active {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(0.92);
+}
+
+.mobile-btn.flashlight-btn {
+  border-color: rgba(255, 220, 100, 0.4);
+  background: rgba(255, 220, 100, 0.1);
+}
+
+.mobile-btn.flashlight-btn.active {
+  background: rgba(255, 220, 100, 0.35);
+  border-color: rgba(255, 220, 100, 0.7);
+  box-shadow: 0 0 15px rgba(255, 220, 100, 0.3);
+}
+
+.mobile-btn.flashlight-btn.disabled {
+  background: rgba(255, 50, 50, 0.15);
+  border-color: rgba(255, 50, 50, 0.4);
+  opacity: 0.5;
+}
+
+/* ===== 스크롤바 ===== */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* ===== 모바일 반응형 (≤768px / 터치 디바이스) ===== */
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  #mobile-controls {
+    display: block;
+  }
+
+  #player-stats {
+    top: auto;
+    bottom: 10px;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: min(320px, 90vw);
+    max-height: 35vh;
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+
+  #player-stats.collapsed {
+    max-height: 36px;
+    bottom: 10px;
+  }
+
+  #debuff-display {
+    top: auto;
+    bottom: 200px;
+    left: 10px;
+    font-size: 11px;
+  }
+
+  .debuff {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  #ghost-count-display {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+
+  #game-timer {
+    font-size: 15px;
+    padding: 3px 14px;
+  }
+
+  #game-info {
+    bottom: auto;
+    top: 4px;
+    left: 4px;
+    font-size: 9px;
+  }
+
+  #overlay h2 {
+    font-size: 22px !important;
+  }
+
+  #nickname-input {
+    font-size: 16px; /* iOS 줌 방지 */
+  }
+}
+
+/* ===== 작은 화면 (≤480px 세로 모드) ===== */
+@media (max-width: 480px) {
+  #joystick-area {
+    bottom: 20px;
+    left: 15px;
+    width: 120px;
+    height: 120px;
+  }
+
+  #joystick-base {
+    width: 120px;
+    height: 120px;
+  }
+
+  #joystick-thumb {
+    width: 48px;
+    height: 48px;
+  }
+
+  #mobile-buttons {
+    bottom: 20px;
+    right: 15px;
+    gap: 10px;
+  }
+
+  .mobile-btn {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+  }
+
+  #player-stats {
+    max-width: 85vw;
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+}
+
+/* ===== 가로 모드 (≤500px 높이 + landscape) ===== */
+@media (max-height: 500px) and (orientation: landscape) {
+  #joystick-area {
+    bottom: 10px;
+    left: 15px;
+    width: 100px;
+    height: 100px;
+  }
+
+  #joystick-base {
+    width: 100px;
+    height: 100px;
+  }
+
+  #joystick-thumb {
+    width: 40px;
+    height: 40px;
+  }
+
+  #mobile-buttons {
+    bottom: 10px;
+    right: 10px;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .mobile-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 18px;
+  }
+
+  #player-stats {
+    top: 10px;
+    right: 10px;
+    bottom: auto;
+    left: auto;
+    transform: none;
+    max-width: 220px;
+    max-height: 40vh;
+  }
+
+  #hud-top-bar {
+    top: 4px;
+  }
+
+  #ghost-count-display {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+
+  #game-timer {
+    font-size: 14px;
+    padding: 2px 12px;
+  }
 }

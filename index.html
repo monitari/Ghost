@@ -1,58 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>미로 탐험 게임</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:,">
 </head>
 <body>
+
+  <!-- ======= 로딩 화면 ======= -->
   <div id="loading-screen">
     <h1>로딩 중...</h1>
+    <div class="loading-spinner"></div>
   </div>
   
+  <!-- ======= 게임 캔버스 ======= -->
   <canvas id="game-canvas"></canvas>
-  <div id="overlay">
-    <input type="text" id="nickname-input" placeholder="닉네임을 입력하세요">
-    <button id="start-button">시작</button>
-    <!-- 모든 stat 쿠키 삭제 버튼 추가 -->
-    <button id="delete-stats-button" style="position: absolute; bottom: 10px; right: 10px;">모든 통계 삭제</button>
-  </div>
-  <!-- 플레이어 통계 표시 요소 추가 -->
-  <div id="player-stats" style="display: none;">
-    <h3>플레이어 통계</h3>
-    <ul id="stats-list">
-      <!-- 통계 항목들이 여기에 추가됩니다 -->
-    </ul>
-  </div>
-  <!-- 디버프 표시 요소 추가 -->
-  <div id="debuff-display"></div>
-  <!-- 유령 개체수 표시 요소 추가 -->
-  <div id="ghost-count-display"></div>
-  <!-- 게임 타이머 표시 요소 추가 -->
-  <div id="game-timer"></div>
-  <!-- 게임 정보 표시 요소 추가 -->
-  <div id="game-info" style="position: absolute; bottom: 10px; left: 10px; color: rgba(255, 255, 255, 0.15);">
-    Ghost Game by Moni<br>V 1.4.3
-  </div>
-  <script type="module" src="js/main.js" defer></script>
-  <script type="module">
-    console.log('index.html 스크립트 실행');
 
+  <!-- ======= 오버레이 (닉네임 입력 · 시작) ======= -->
+  <div id="overlay">
+    <h2 style="margin: 0 0 20px 0; font-size: 28px; text-shadow: 0 0 20px rgba(74, 158, 255, 0.5);">👻 Ghost Game</h2>
+    <input type="text" id="nickname-input" placeholder="닉네임을 입력하세요" maxlength="20">
+    <button id="start-button">🎮 게임 시작</button>
+    <button id="delete-stats-button">통계 초기화</button>
+  </div>
+
+  <!-- ======= 통계 패널 ======= -->
+  <div id="player-stats" style="display: none;">
+    <div class="stats-header" id="stats-header">
+      <h3>📊 플레이어 통계</h3>
+      <span class="stats-toggle">▼</span>
+    </div>
+    <div class="stats-content" id="stats-content"></div>
+  </div>
+  <!-- ======= 디버프 표시 ======= -->
+  <div id="debuff-display"></div>
+
+  <!-- ======= 상단 HUD ======= -->
+  <div id="hud-top-bar">
+    <div id="ghost-count-display"></div>
+    <div id="battery-display">
+      <span class="battery-icon">🔋</span>
+      <div class="battery-bar">
+        <div class="battery-fill"></div>
+      </div>
+      <span class="battery-text">100%</span>
+    </div>
+    <div id="game-timer"></div>
+  </div>
+
+  <!-- ======= 버전 정보 ======= -->
+  <div id="game-info">Ghost Game by Moni<br>V 1.5.0</div>
+
+  <!-- ======= 모바일 컨트롤 ======= -->
+  <div id="mobile-controls">
+    <div id="joystick-area">
+      <div id="joystick-base">
+        <div id="joystick-thumb"></div>
+      </div>
+    </div>
+    <div id="mobile-buttons">
+      <button class="mobile-btn flashlight-btn active" id="btn-flashlight" aria-label="손전등 토글">🔦</button>
+    </div>
+  </div>
+
+  <!-- ======= 스크립트 ======= -->
+  <script type="module" src="js/main.js"></script>
+  <script type="module">
     import { startGame } from './js/main.js';
     import { showPlayerStats, deleteAllStatsCookies } from './js/uistats.js';
-    window.startGame = startGame;
-    window.showPlayerStats = showPlayerStats;
+
+    // 전역 노출 (HTML 인라인 이벤트용)
+    window.startGame          = startGame;
+    window.showPlayerStats    = showPlayerStats;
     window.deleteAllStatsCookies = deleteAllStatsCookies;
 
+    // 게임 시작 버튼
     document.getElementById('start-button').addEventListener('click', () => {
       try {
         const nickname = document.getElementById('nickname-input').value;
         if (nickname) {
           document.getElementById('overlay').style.display = 'none';
           window.startGame(nickname);
-          window.showPlayerStats(); // 게임 시작 시 통계 표시
+          window.showPlayerStats();
         } else {
           alert('닉네임을 입력하세요');
         }

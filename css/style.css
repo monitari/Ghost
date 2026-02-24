@@ -559,6 +559,11 @@ canvas {
   z-index: 60;
 }
 
+/* JS 감지 폴백: 미디어쿼리 실패 시에도 모바일 컨트롤 표시 */
+body.is-mobile #mobile-controls {
+  display: block;
+}
+
 #joystick-area {
   position: absolute;
   bottom: 30px;
@@ -662,54 +667,144 @@ canvas {
 
 /* ===== 모바일 반응형 (≤768px / 터치 디바이스) ===== */
 @media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  /* --- 모바일 컨트롤 표시 --- */
   #mobile-controls {
     display: block;
   }
 
-  #player-stats {
-    top: auto;
-    bottom: 10px;
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
-    max-width: min(320px, 90vw);
-    max-height: 35vh;
-    font-size: 12px;
-    padding: 10px 12px;
-  }
-
-  #player-stats.collapsed {
-    max-height: 36px;
-    bottom: 10px;
-  }
-
-  #debuff-display {
-    top: auto;
-    bottom: 200px;
-    left: 10px;
-    font-size: 11px;
-  }
-
-  .debuff {
-    padding: 4px 8px;
-    font-size: 11px;
+  /* --- HUD: 가로 컴팩트 바 (한 줄) --- */
+  #hud-top-bar {
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+    top: max(6px, env(safe-area-inset-top, 6px));
   }
 
   #ghost-count-display {
-    font-size: 11px;
+    font-size: 10px;
     padding: 3px 10px;
+    order: 1;
+  }
+
+  #battery-display {
+    padding: 3px 8px;
+    font-size: 11px;
+    order: 2;
+  }
+
+  #battery-display .battery-bar {
+    width: 42px;
+    height: 12px;
+  }
+
+  #battery-display .battery-text {
+    font-size: 10px;
+    min-width: 28px;
   }
 
   #game-timer {
-    font-size: 15px;
-    padding: 3px 14px;
+    font-size: 13px;
+    padding: 3px 10px;
+    order: 3;
   }
 
+  /* --- 디버프: HUD 아래 중앙, 가로 정렬 --- */
+  #debuff-display {
+    top: max(38px, calc(env(safe-area-inset-top, 0px) + 38px));
+    bottom: auto;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 90vw;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .debuff {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  /* --- 통계 패널: 우상단 (컨트롤 영역 밖) --- */
+  #player-stats {
+    top: max(38px, calc(env(safe-area-inset-top, 0px) + 38px));
+    right: max(6px, env(safe-area-inset-right, 6px));
+    bottom: auto;
+    left: auto;
+    transform: none;
+    max-width: min(220px, 48vw);
+    max-height: 32vh;
+    font-size: 11px;
+    padding: 8px 10px;
+    opacity: 0.92;
+  }
+
+  #player-stats.collapsed {
+    max-height: 32px;
+  }
+
+  /* 통계 카드: 2×2 그리드로 축소 */
+  #player-stats .stat-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+
+  #player-stats .stat-card-value {
+    font-size: 14px;
+  }
+
+  #player-stats .stat-card-label {
+    font-size: 8px;
+  }
+
+  /* 유령 테이블 컬럼 축소 */
+  #player-stats .stat-ghost-header,
+  #player-stats .stat-ghost-row {
+    grid-template-columns: 1fr 44px 44px;
+    gap: 2px;
+  }
+
+  #player-stats .sgr-name {
+    font-size: 11px;
+  }
+
+  #player-stats .sgr-num {
+    font-size: 11px;
+  }
+
+  /* --- 출구 화살표: HUD 아래 --- */
+  #arrow-to-exit {
+    top: max(60px, calc(env(safe-area-inset-top, 0px) + 60px));
+    font-size: 14px;
+  }
+
+  /* --- 게임 정보: 좌상단 --- */
   #game-info {
     bottom: auto;
-    top: 4px;
-    left: 4px;
+    top: max(4px, env(safe-area-inset-top, 4px));
+    left: max(4px, env(safe-area-inset-left, 4px));
     font-size: 9px;
+  }
+
+  /* --- 조이스틱 safe-area --- */
+  #joystick-area {
+    bottom: max(28px, env(safe-area-inset-bottom, 28px));
+    left: max(24px, env(safe-area-inset-left, 24px));
+  }
+
+  /* --- 모바일 버튼 safe-area --- */
+  #mobile-buttons {
+    bottom: max(28px, env(safe-area-inset-bottom, 28px));
+    right: max(18px, env(safe-area-inset-right, 18px));
+  }
+
+  /* --- 오버레이 모바일 --- */
+  #overlay {
+    padding: max(20px, env(safe-area-inset-top, 20px)) 20px
+             max(20px, env(safe-area-inset-bottom, 20px));
   }
 
   #overlay h2 {
@@ -719,13 +814,18 @@ canvas {
   #nickname-input {
     font-size: 16px; /* iOS 줌 방지 */
   }
+
+  #start-button {
+    min-height: 48px;
+    padding: 14px 44px;
+  }
 }
 
 /* ===== 작은 화면 (≤480px 세로 모드) ===== */
 @media (max-width: 480px) {
   #joystick-area {
-    bottom: 20px;
-    left: 15px;
+    bottom: max(18px, env(safe-area-inset-bottom, 18px));
+    left: max(14px, env(safe-area-inset-left, 14px));
     width: 120px;
     height: 120px;
   }
@@ -741,8 +841,8 @@ canvas {
   }
 
   #mobile-buttons {
-    bottom: 20px;
-    right: 15px;
+    bottom: max(18px, env(safe-area-inset-bottom, 18px));
+    right: max(12px, env(safe-area-inset-right, 12px));
     gap: 10px;
   }
 
@@ -752,18 +852,64 @@ canvas {
     font-size: 20px;
   }
 
+  /* 통계: 더 작게 */
   #player-stats {
-    max-width: 85vw;
-    font-size: 11px;
-    padding: 8px 10px;
+    max-width: min(200px, 52vw);
+    max-height: 28vh;
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+
+  #player-stats .stat-cards {
+    gap: 3px;
+  }
+
+  #player-stats .stat-card-value {
+    font-size: 13px;
+  }
+
+  /* HUD 병합: 더 작은 텍스트 */
+  #ghost-count-display {
+    font-size: 9px;
+    padding: 2px 8px;
+  }
+
+  #game-timer {
+    font-size: 12px;
+    padding: 2px 8px;
+  }
+
+  #battery-display .battery-bar {
+    width: 36px;
+    height: 10px;
+  }
+
+  #battery-display .battery-text {
+    font-size: 9px;
+    min-width: 24px;
+  }
+
+  /* 디버프: 좁은 화면 맞춤 */
+  #debuff-display {
+    max-width: 95vw;
+  }
+
+  .debuff {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  #arrow-to-exit {
+    font-size: 13px;
   }
 }
 
 /* ===== 가로 모드 (≤500px 높이 + landscape) ===== */
 @media (max-height: 500px) and (orientation: landscape) {
+  /* 조이스틱: 좌하단 컴팩트 */
   #joystick-area {
-    bottom: 10px;
-    left: 15px;
+    bottom: max(8px, env(safe-area-inset-bottom, 8px));
+    left: max(12px, env(safe-area-inset-left, 12px));
     width: 100px;
     height: 100px;
   }
@@ -778,40 +924,89 @@ canvas {
     height: 40px;
   }
 
+  /* 버튼: 우하단 가로 배치 */
   #mobile-buttons {
-    bottom: 10px;
-    right: 10px;
+    bottom: max(8px, env(safe-area-inset-bottom, 8px));
+    right: max(10px, env(safe-area-inset-right, 10px));
     flex-direction: row;
     gap: 8px;
   }
 
   .mobile-btn {
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
     font-size: 18px;
   }
 
-  #player-stats {
-    top: 10px;
-    right: 10px;
-    bottom: auto;
-    left: auto;
-    transform: none;
-    max-width: 220px;
-    max-height: 40vh;
-  }
-
+  /* HUD: 더 작게 */
   #hud-top-bar {
-    top: 4px;
+    top: max(3px, env(safe-area-inset-top, 3px));
+    gap: 4px;
   }
 
   #ghost-count-display {
-    font-size: 10px;
-    padding: 2px 8px;
+    font-size: 9px;
+    padding: 2px 6px;
   }
 
   #game-timer {
-    font-size: 14px;
-    padding: 2px 12px;
+    font-size: 12px;
+    padding: 2px 8px;
+  }
+
+  #battery-display {
+    padding: 2px 6px;
+  }
+
+  #battery-display .battery-bar {
+    width: 34px;
+    height: 10px;
+  }
+
+  #battery-display .battery-text {
+    font-size: 9px;
+  }
+
+  /* 통계: 우상단 작게 */
+  #player-stats {
+    top: max(28px, calc(env(safe-area-inset-top, 0px) + 28px));
+    right: max(8px, env(safe-area-inset-right, 8px));
+    bottom: auto;
+    left: auto;
+    transform: none;
+    max-width: 200px;
+    max-height: 35vh;
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+
+  #player-stats.collapsed {
+    max-height: 28px;
+  }
+
+  /* 디버프: 좌상단 */
+  #debuff-display {
+    top: max(28px, calc(env(safe-area-inset-top, 0px) + 28px));
+    left: max(8px, env(safe-area-inset-left, 8px));
+    right: auto;
+    transform: none;
+    flex-direction: column;
+    max-width: 160px;
+  }
+
+  .debuff {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  /* 게임 정보: 숨김 (가로 모드 공간 절약) */
+  #game-info {
+    display: none;
+  }
+
+  /* 출구 화살표 */
+  #arrow-to-exit {
+    top: max(24px, calc(env(safe-area-inset-top, 0px) + 24px));
+    font-size: 12px;
   }
 }

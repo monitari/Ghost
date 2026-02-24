@@ -267,8 +267,8 @@ export function drawFlashlight(ctx) {
       
       // 외부 글로우
       const glowGrad = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, glowSize * 2);
-      glowGrad.addColorStop(0, `rgba(255, 255, 200, ${brightness * 0.6})`);
-      glowGrad.addColorStop(0.5, `rgba(255, 255, 150, ${brightness * 0.3})`);
+      glowGrad.addColorStop(0, `rgba(255, 255, 200, ${brightness * 0.3})`);
+      glowGrad.addColorStop(0.5, `rgba(255, 255, 150, ${brightness * 0.15})`);
       glowGrad.addColorStop(1, 'rgba(255, 255, 150, 0)');
       
       ctx.beginPath();
@@ -279,7 +279,7 @@ export function drawFlashlight(ctx) {
       // 중심 밝은 점
       ctx.beginPath();
       ctx.arc(point.x, point.y, 2, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 220, ${brightness * 0.8})`;
+      ctx.fillStyle = `rgba(255, 255, 220, ${brightness * 0.4})`;
       ctx.fill();
       
       // ── 간접광 시각 효과 (따뜻한 반사광) ──
@@ -291,8 +291,8 @@ export function drawFlashlight(ctx) {
           point.x, point.y, 0,
           point.x, point.y, indirectVisualRadius
         );
-        indirectColorGrad.addColorStop(0, `rgba(255, 240, 180, ${brightness * 0.15})`);
-        indirectColorGrad.addColorStop(0.5, `rgba(255, 230, 150, ${brightness * 0.08})`);
+        indirectColorGrad.addColorStop(0, `rgba(255, 240, 180, ${brightness * 0.08})`);
+        indirectColorGrad.addColorStop(0.5, `rgba(255, 230, 150, ${brightness * 0.04})`);
         indirectColorGrad.addColorStop(1, 'rgba(255, 220, 120, 0)');
         
         ctx.beginPath();

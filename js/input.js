@@ -102,18 +102,52 @@ export function getBatteryPercent() {
 //  모바일 감지
 // ═══════════════════════════════════════
 /**
- * 터치스크린 + 작은 화면/호버 불가 조합으로 모바일을 판별한다.
- * PC 터치스크린 오감지를 방지하기 위해 단순 ontouchstart 만으론 판단하지 않는다.
+ * 터치스크린 + 작은 화면/호버 불가/UA 조합으로 모바일을 판별한다.
+ * 여러 브라우저에서 미디어쿼리 미지원 시에도 정확히 감지하도록
+ * UA 문자열 폴백과 첫 터치 자동 활성화를 포함한다.
  */
 let _isMobileCache = null;
+let _mobileInitialized = false;
+
 export function isMobile() {
   if (_isMobileCache !== null) return _isMobileCache;
-  const hasTouchScreen  = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-  const isSmallScreen   = window.innerWidth <= 1024;
+
+  const hasTouchScreen   = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isSmallScreen    = window.innerWidth <= 1024;
   const hasCoarsePointer = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-  _isMobileCache = hasTouchScreen && (isSmallScreen || hasCoarsePointer);
+
+  // UA 폴백: 미디어쿼리를 지원하지 않는 모바일 브라우저 대응
+  const ua = navigator.userAgent || '';
+  const uaMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(ua);
+
+  // 기존 조건 + UA 폴백 (터치 가능하면서 UA가 모바일이면 모바일로 판정)
+  _isMobileCache = (hasTouchScreen && (isSmallScreen || hasCoarsePointer)) || (hasTouchScreen && uaMobile);
+
+  // body에 클래스 부여 → CSS 미디어쿼리 폴백
+  if (_isMobileCache) {
+    document.body.classList.add('is-mobile');
+  }
   return _isMobileCache;
 }
+
+/**
+ * 화면 회전·리사이즈 시 캐시 무효화 → 재평가 가능하게
+ */
+function invalidateMobileCache() {
+  const wasMobile = _isMobileCache;
+  _isMobileCache = null;
+  const nowMobile = isMobile();
+  // 이전에 모바일이 아니었지만 지금 모바일이면 컨트롤 초기화
+  if (!wasMobile && nowMobile && !_mobileInitialized) {
+    initMobileControls();
+  }
+}
+window.addEventListener('orientationchange', () => setTimeout(invalidateMobileCache, 200));
+window.addEventListener('resize', () => {
+  // resize 이벤트 디바운스
+  clearTimeout(invalidateMobileCache._timer);
+  invalidateMobileCache._timer = setTimeout(invalidateMobileCache, 300);
+});
 
 // ═══════════════════════════════════════
 //  조이스틱 상태
@@ -138,13 +172,40 @@ export function initializeInput() {
   canvas.addEventListener("mousemove", handleMouseMove);
 
   // 모바일 터치 입력
-  if (isMobile()) initMobileControls();
+  if (isMobile()) {
+    initMobileControls();
+  } else {
+    // 감지 실패 폴백: 첫 터치 이벤트 발생 시 모바일 컨트롤 자동 활성화
+    setupTouchFallback();
+  }
 }
 
 // ═══════════════════════════════════════
 //  모바일 컨트롤 초기화
 // ═══════════════════════════════════════
+/**
+ * 첫 터치 폴백: isMobile()이 false를 반환했지만
+ * 실제로 터치 이벤트가 발생하면 모바일 컨트롤을 활성화한다.
+ */
+function setupTouchFallback() {
+  const onFirstTouch = () => {
+    window.removeEventListener('touchstart', onFirstTouch, true);
+    if (!_mobileInitialized) {
+      _isMobileCache = true;
+      document.body.classList.add('is-mobile');
+      initMobileControls();
+    }
+  };
+  window.addEventListener('touchstart', onFirstTouch, { capture: true, passive: true });
+}
+
 function initMobileControls() {
+  if (_mobileInitialized) return; // 중복 초기화 방지
+  _mobileInitialized = true;
+
+  // CSS 폴백 재확인
+  document.body.classList.add('is-mobile');
+
   const joystickArea = document.getElementById('joystick-area');
   const btnFlashlight = document.getElementById('btn-flashlight');
 

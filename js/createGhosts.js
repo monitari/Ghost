@@ -64,7 +64,7 @@ const ghostTypes = [
     speed: 1.5, size: 18, health: 35,
     visionRange: Infinity, warningRange: 6 * CELL, maxOpacity: 0.4 },
 
-  { type: 'splitter',    probability: 16.0,
+  { type: 'splitter',    probability: 0.02,
     r: 255, g: 128, b: 0,
     speed: 2.0, size: 22, health: 8,
     visionRange: 4 * CELL, warningRange: 3 * CELL },
